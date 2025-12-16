@@ -2,13 +2,10 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description:
   T3-Wagu Game VPC with Public, Private Subnets and VPC Peering to Matching VPC
 
-# =====================
-# Parameters
-# =====================
 Parameters:
-  MatchingVPCId:
+  ProjectPrefix:
     Type: String
-    Description: VPC ID of T3-Wagu-Matching-VPC
+    Default: T3-Wagu
 
   MatchingVPCCidr:
     Type: String
@@ -20,7 +17,7 @@ Resources:
 # =====================
 # Game VPC
 # =====================
-  T3WaguGameVPC:
+  GameVPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.1.0.0/16
@@ -33,81 +30,80 @@ Resources:
 # =====================
 # Internet Gateway
 # =====================
-  T3WaguInternetGateway:
+  GameInternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: T3-Wagu-IGW
+          Value: T3-Wagu-Game-IGW
 
-  T3WaguIGWAttachment:
+  GameIGWAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref T3WaguGameVPC
-      InternetGatewayId: !Ref T3WaguInternetGateway
+      VpcId: !Ref GameVPC
+      InternetGatewayId: !Ref GameInternetGateway
 
 # =====================
 # Public Subnets
 # =====================
-  T3WaguPublicSubnetA:
+  GamePublicSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref T3WaguGameVPC
+      VpcId: !Ref GameVPC
       CidrBlock: 10.1.10.0/24
       AvailabilityZone: ap-northeast-2a
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: T3-Wagu-Public-Subnet-A
+          Value: T3-Wagu-Game-Public-Subnet-A
         - Key: kubernetes.io/cluster/T3-Wagu-Game
           Value: shared
         - Key: kubernetes.io/role/elb
           Value: 1
 
-  T3WaguPublicSubnetB:
+  GamePublicSubnetB:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref T3WaguGameVPC
+      VpcId: !Ref GameVPC
       CidrBlock: 10.1.11.0/24
       AvailabilityZone: ap-northeast-2c
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: T3-Wagu-Public-Subnet-B
+          Value: T3-Wagu-Game-Public-Subnet-B
         - Key: kubernetes.io/cluster/T3-Wagu-Game
           Value: shared
         - Key: kubernetes.io/role/elb
           Value: 1
 
-
 # =====================
 # Private Subnets
 # =====================
-  T3WaguPrivateSubnetA:
+  GamePrivateSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref T3WaguGameVPC
+      VpcId: !Ref GameVPC
       CidrBlock: 10.1.20.0/24
       AvailabilityZone: ap-northeast-2a
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: T3-Wagu-Private-Subnet-A
+          Value: T3-Wagu-Game-Private-Subnet-A
         - Key: kubernetes.io/cluster/T3-Wagu-Game
           Value: shared
         - Key: kubernetes.io/role/internal-elb
           Value: 1
 
-  T3WaguPrivateSubnetB:
+  GamePrivateSubnetB:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref T3WaguGameVPC
+      VpcId: !Ref GameVPC
       CidrBlock: 10.1.21.0/24
       AvailabilityZone: ap-northeast-2c
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: T3-Wagu-Private-Subnet-B
+          Value: T3-Wagu-Game-Private-Subnet-B
         - Key: kubernetes.io/cluster/T3-Wagu-Game
           Value: shared
         - Key: kubernetes.io/role/internal-elb
@@ -116,92 +112,92 @@ Resources:
 # =====================
 # Public Route Table
 # =====================
-  T3WaguPublicRouteTable:
+  GamePublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref T3WaguGameVPC
+      VpcId: !Ref GameVPC
       Tags:
         - Key: Name
-          Value: T3-Wagu-Public-RT
+          Value: T3-Wagu-Game-Public-RT
 
-  T3WaguPublicRoute:
+  GamePublicRoute:
     Type: AWS::EC2::Route
-    DependsOn: T3WaguIGWAttachment
+    DependsOn: GameIGWAttachment
     Properties:
-      RouteTableId: !Ref T3WaguPublicRouteTable
+      RouteTableId: !Ref GamePublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref T3WaguInternetGateway
+      GatewayId: !Ref GameInternetGateway
 
-  T3WaguPublicSubnetARouteTableAssociation:
+  GamePublicSubnetARouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref T3WaguPublicSubnetA
-      RouteTableId: !Ref T3WaguPublicRouteTable
+      SubnetId: !Ref GamePublicSubnetA
+      RouteTableId: !Ref GamePublicRouteTable
 
-  T3WaguPublicSubnetBRouteTableAssociation:
+  GamePublicSubnetBRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref T3WaguPublicSubnetB
-      RouteTableId: !Ref T3WaguPublicRouteTable
+      SubnetId: !Ref GamePublicSubnetB
+      RouteTableId: !Ref GamePublicRouteTable
 
 # =====================
 # NAT Gateway
 # =====================
-  T3WaguNatEIP:
+  GameNatEIP:
     Type: AWS::EC2::EIP
     Properties:
       Domain: vpc
       Tags:
         - Key: Name
-          Value: T3-Wagu-NAT-EIP
+          Value: T3-Wagu-Game-NAT-EIP
 
-  T3WaguNatGateway:
+  GameNatGateway:
     Type: AWS::EC2::NatGateway
     Properties:
-      AllocationId: !GetAtt T3WaguNatEIP.AllocationId
-      SubnetId: !Ref T3WaguPublicSubnetA
+      AllocationId: !GetAtt GameNatEIP.AllocationId
+      SubnetId: !Ref GamePublicSubnetA
       Tags:
         - Key: Name
-          Value: T3-Wagu-NAT-GW
+          Value: T3-Wagu-Game-NAT-GW
 
 # =====================
 # Private Route Table
 # =====================
-  T3WaguPrivateRouteTable:
+  GamePrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref T3WaguGameVPC
+      VpcId: !Ref GameVPC
       Tags:
         - Key: Name
-          Value: T3-Wagu-Private-RT
+          Value: T3-Wagu-Game-Private-RT
 
-  T3WaguPrivateRoute:
+  GamePrivateRoute:
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId: !Ref T3WaguPrivateRouteTable
+      RouteTableId: !Ref GamePrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref T3WaguNatGateway
+      NatGatewayId: !Ref GameNatGateway
 
-  T3WaguPrivateSubnetARouteTableAssociation:
+  GamePrivateSubnetARouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref T3WaguPrivateSubnetA
-      RouteTableId: !Ref T3WaguPrivateRouteTable
+      SubnetId: !Ref GamePrivateSubnetA
+      RouteTableId: !Ref GamePrivateRouteTable
 
-  T3WaguPrivateSubnetBRouteTableAssociation:
+  GamePrivateSubnetBRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref T3WaguPrivateSubnetB
-      RouteTableId: !Ref T3WaguPrivateRouteTable
+      SubnetId: !Ref GamePrivateSubnetB
+      RouteTableId: !Ref GamePrivateRouteTable
 
 # =====================
-# VPC Peering (Game <-> Matching)
+# VPC Peering
 # =====================
-  T3WaguGameToMatchingPeering:
+  GameToMatchingPeering:
     Type: AWS::EC2::VPCPeeringConnection
     Properties:
-      VpcId: !Ref T3WaguGameVPC
-      PeerVpcId: !Ref MatchingVPCId
+      VpcId: !Ref GameVPC
+      PeerVpcId: !ImportValue T3-Wagu-Matching-VPC-Id
       Tags:
         - Key: Name
           Value: T3-Wagu-Game-Matching-Peering
@@ -209,47 +205,25 @@ Resources:
 # =====================
 # Routes to Matching VPC
 # =====================
-  T3WaguPublicRouteToMatchingVPC:
+  GamePublicRouteToMatching:
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId: !Ref T3WaguPublicRouteTable
+      RouteTableId: !Ref GamePublicRouteTable
       DestinationCidrBlock: !Ref MatchingVPCCidr
-      VpcPeeringConnectionId: !Ref T3WaguGameToMatchingPeering
+      VpcPeeringConnectionId: !Ref GameToMatchingPeering
 
-  T3WaguPrivateRouteToMatchingVPC:
+  GamePrivateRouteToMatching:
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId: !Ref T3WaguPrivateRouteTable
+      RouteTableId: !Ref GamePrivateRouteTable
       DestinationCidrBlock: !Ref MatchingVPCCidr
-      VpcPeeringConnectionId: !Ref T3WaguGameToMatchingPeering
+      VpcPeeringConnectionId: !Ref GameToMatchingPeering
 
 # =====================
 # Outputs
 # =====================
 Outputs:
   GameVPCId:
-    Description: T3-Wagu Game VPC ID
-    Value: !Ref T3WaguGameVPC
+    Value: !Ref GameVPC
     Export:
       Name: !Sub "${ProjectPrefix}-Game-VPC-Id"
-
-  GamePublicSubnetAId:
-    Value: !Ref T3WaguPublicSubnetA
-    Export:
-      Name: !Sub "${ProjectPrefix}-Game-Public-Subnet-A-Id"
-
-  GamePublicSubnetBId:
-    Value: !Ref T3WaguPublicSubnetB
-    Export:
-      Name: !Sub "${ProjectPrefix}-Game-Public-Subnet-B-Id"
-
-  GamePrivateSubnetAId:
-    Value: !Ref T3WaguPrivateSubnetA
-    Export:
-      Name: !Sub "${ProjectPrefix}-Game-Private-Subnet-A-Id"
-
-  GamePrivateSubnetBId:
-    Value: !Ref T3WaguPrivateSubnetB
-    Export:
-      Name: !Sub "${ProjectPrefix}-Game-Private-Subnet-B-Id"
-

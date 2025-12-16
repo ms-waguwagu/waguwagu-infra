@@ -1,17 +1,25 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: WAGUWAGU VPCs (Matching/Game) + Peering + Subnets + Routing
+Description: T3-Wagu Matching VPC (Standalone)
 
+# =====================
+# Parameters
+# =====================
 Parameters:
   ProjectPrefix:
     Type: String
     Default: T3-Wagu
+
   AzA:
     Type: AWS::EC2::AvailabilityZone::Name
     Default: ap-northeast-2a
+
   AzC:
     Type: AWS::EC2::AvailabilityZone::Name
     Default: ap-northeast-2c
 
+# =====================
+# Resources
+# =====================
 Resources:
   ############################################################
   # Matching VPC
@@ -26,6 +34,9 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Matching-VPC"
 
+  ############################################################
+  # Internet Gateway
+  ############################################################
   MatchingIGW:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -39,7 +50,9 @@ Resources:
       VpcId: !Ref MatchingVPC
       InternetGatewayId: !Ref MatchingIGW
 
+  ############################################################
   # Public Subnets
+  ############################################################
   MatchingPublicSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -51,7 +64,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-A"
 
-  MatchingPublicSubnetC:
+  MatchingPublicSubnetB:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MatchingVPC
@@ -60,10 +73,12 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-C"
+          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-B"
 
-  # Private App Subnets
-  MatchingPrivateAppSubnetA:
+  ############################################################
+  # Private Subnets
+  ############################################################
+  MatchingPrivateSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MatchingVPC
@@ -72,9 +87,9 @@ Resources:
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Matching-Private-App-Subnet-A"
+          Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-A"
 
-  MatchingPrivateAppSubnetC:
+  MatchingPrivateSubnetB:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MatchingVPC
@@ -83,9 +98,11 @@ Resources:
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Matching-Private-App-Subnet-C"
+          Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-B"
 
-  # Private DB Subnets (ElastiCache)
+  ############################################################
+  # Private DB Subnets
+  ############################################################
   MatchingPrivateDbSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -97,7 +114,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-A"
 
-  MatchingPrivateDbSubnetC:
+  MatchingPrivateDbSubnetB:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MatchingVPC
@@ -106,9 +123,11 @@ Resources:
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-C"
+          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-B"
 
-  # Route Tables (Matching)
+  ############################################################
+  # Route Tables
+  ############################################################
   MatchingPublicRT:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -117,7 +136,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Matching-Public-RT"
 
-  MatchingPublicRouteToIGW:
+  MatchingPublicRoute:
     Type: AWS::EC2::Route
     DependsOn: MatchingIGWAttach
     Properties:
@@ -131,13 +150,15 @@ Resources:
       SubnetId: !Ref MatchingPublicSubnetA
       RouteTableId: !Ref MatchingPublicRT
 
-  MatchingPublicAssocC:
+  MatchingPublicAssocB:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref MatchingPublicSubnetC
+      SubnetId: !Ref MatchingPublicSubnetB
       RouteTableId: !Ref MatchingPublicRT
 
-  # NAT (Matching) - 비용 절약형 1개
+  ############################################################
+  # NAT Gateway (Single – Cost Optimized)
+  ############################################################
   MatchingNatEip:
     Type: AWS::EC2::EIP
     Properties:
@@ -153,7 +174,7 @@ Resources:
       SubnetId: !Ref MatchingPublicSubnetA
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Matching-NAT"
+          Value: !Sub "${ProjectPrefix}-Matching-NAT-GW"
 
   MatchingPrivateRT:
     Type: AWS::EC2::RouteTable
@@ -163,104 +184,57 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Matching-Private-RT"
 
-  MatchingPrivateRouteToNat:
+  MatchingPrivateRoute:
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref MatchingPrivateRT
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref MatchingNatGateway
 
-  MatchingPrivateAssocAppA:
+  ############################################################
+  # Private RouteTable Associations (Explicit)
+  ############################################################
+  MatchingPrivateSubnetAssocA:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref MatchingPrivateAppSubnetA
+      SubnetId: !Ref MatchingPrivateSubnetA
       RouteTableId: !Ref MatchingPrivateRT
 
-  MatchingPrivateAssocAppC:
+  MatchingPrivateSubnetAssocB:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref MatchingPrivateAppSubnetC
+      SubnetId: !Ref MatchingPrivateSubnetB
       RouteTableId: !Ref MatchingPrivateRT
 
-  MatchingPrivateAssocDbA:
+  MatchingPrivateDbSubnetAssocA:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref MatchingPrivateDbSubnetA
       RouteTableId: !Ref MatchingPrivateRT
 
-  MatchingPrivateAssocDbC:
+  MatchingPrivateDbSubnetAssocB:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref MatchingPrivateDbSubnetC
-
+      SubnetId: !Ref MatchingPrivateDbSubnetB
       RouteTableId: !Ref MatchingPrivateRT
 
 
-############################################################
-  # VPC Peering + Routes
-  ############################################################
-  MatchingGamePeering:
-    Type: AWS::EC2::VPCPeeringConnection
-    Properties:
-      VpcId: !Ref MatchingVPC
-      PeerVpcId: !Ref GameVPC
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Matching-Game-Peering"
-
-  # Matching Private RT -> Game CIDR
-  MatchingPrivateRouteToGame:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref MatchingPrivateRT
-      DestinationCidrBlock: 10.1.0.0/16
-      VpcPeeringConnectionId: !Ref MatchingGamePeering
-
-  # Game Private RT -> Matching CIDR
-  GamePrivateRouteToMatching:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref GamePrivateRT
-      DestinationCidrBlock: 10.0.0.0/16
-      VpcPeeringConnectionId: !Ref MatchingGamePeering
-
+# =====================
+# Outputs
+# =====================
 Outputs:
-  MatchingVpcId:
+  MatchingVPCId:
     Value: !Ref MatchingVPC
     Export:
-      Name: !Sub "${ProjectPrefix}-MatchingVpcId"
-
-  GameVpcId:
-    Value: !Ref GameVPC
-    Export:
-      Name: !Sub "${ProjectPrefix}-GameVpcId"
-
-  MatchingPrivateAppSubnetIds:
-    Value: !Join [",", [!Ref MatchingPrivateAppSubnetA, !Ref MatchingPrivateAppSubnetC]]
-    Export:
-      Name: !Sub "${ProjectPrefix}-MatchingPrivateAppSubnetIds"
-
-  MatchingPrivateDbSubnetIds:
-    Value: !Join [",", [!Ref MatchingPrivateDbSubnetA, !Ref MatchingPrivateDbSubnetC]]
-    Export:
-      Name: !Sub "${ProjectPrefix}-MatchingPrivateDbSubnetIds"
+      Name: !Sub "${ProjectPrefix}-Matching-VPC-Id"
 
   MatchingPublicSubnetIds:
-    Value: !Join [",", [!Ref MatchingPublicSubnetA, !Ref MatchingPublicSubnetC]]
+    Value: !Join [",", [!Ref MatchingPublicSubnetA, !Ref MatchingPublicSubnetB]]
     Export:
-      Name: !Sub "${ProjectPrefix}-MatchingPublicSubnetIds"
+      Name: !Sub "${ProjectPrefix}-Matching-Public-Subnet-Ids"
 
-  GamePrivateAppSubnetIds:
-    Value: !Join [",", [!Ref GamePrivateAppSubnetA, !Ref GamePrivateAppSubnetC]]
+  MatchingPrivateSubnetIds:
+    Value:
+      !Join [",", [!Ref MatchingPrivateSubnetA, !Ref MatchingPrivateSubnetB]]
     Export:
-      Name: !Sub "${ProjectPrefix}-GamePrivateAppSubnetIds"
-
-  GamePublicSubnetIds:
-    Value: !Join [",", [!Ref GamePublicSubnetA, !Ref GamePublicSubnetC]]
-    Export:
-      Name: !Sub "${ProjectPrefix}-GamePublicSubnetIds"
-
-  PeeringConnectionId:
-    Value: !Ref MatchingGamePeering
-    Export:
-      Name: !Sub "${ProjectPrefix}-MatchingGamePeeringId"
+      Name: !Sub "${ProjectPrefix}-Matching-Private-Subnet-Ids"
