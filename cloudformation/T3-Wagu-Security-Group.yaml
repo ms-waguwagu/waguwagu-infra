@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WAGUWAGU Security Groups (ALB, EKS, Valkey)
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu
+
+  MatchingVpcId:
+    Type: String
+    Description: Matching VPC ID (from VPC stack output)
+
+  GameVpcId:
+    Type: String
+    Description: Game VPC ID (from VPC stack output)
+
+Resources:
+  ############################################################
+  # 1) Matching ALB SG
+  ############################################################
+  MatchingAlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Matching ALB SG
+      VpcId: !Ref MatchingVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-ALB-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 2) Game ALB SG
+  ############################################################
+  GameAlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Game ALB SG
+      VpcId: !Ref GameVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-ALB-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 3) Matching EKS Node SG
+  ############################################################
+  MatchingEksNodeSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Matching EKS Node SG
+      VpcId: !Ref MatchingVpcId
+      SecurityGroupIngress:
+        # ALB → Matching Server
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref MatchingAlbSG
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-EKS-Node-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 4) Game EKS Node SG
+  ############################################################
+  GameEksNodeSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Game EKS Node SG
+      VpcId: !Ref GameVpcId
+      SecurityGroupIngress:
+        # ALB → Game Server
+        - IpProtocol: tcp
+          FromPort: 3001
+          ToPort: 3001
+          SourceSecurityGroupId: !Ref GameAlbSG
+
+        # Matching → Game (VPC Peering)
+        - IpProtocol: tcp
+          FromPort: 3001
+          ToPort: 3001
+          CidrIp: 10.0.0.0/16   # Matching VPC CIDR
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-EKS-Node-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 5) Valkey (Redis) SG
+  ############################################################
+  ValkeySG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Valkey SG
+      VpcId: !Ref MatchingVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref MatchingEksNodeSG
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Valkey-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+Outputs:
+  MatchingAlbSGId:
+    Value: !Ref MatchingAlbSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingAlbSGId"
+
+  GameAlbSGId:
+    Value: !Ref GameAlbSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-GameAlbSGId"
+
+  MatchingEksNodeSGId:
+    Value: !Ref MatchingEksNodeSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingEksNodeSGId"
+
+  GameEksNodeSGId:
+    Value: !Ref GameEksNodeSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-GameEksNodeSGId"
+
+  ValkeySGId:
+    Value: !Ref ValkeySG
+    Export:
+      Name: !Sub "${ProjectPrefix}-ValkeySGId"
