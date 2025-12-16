@@ -59,6 +59,10 @@ Resources:
       Tags:
         - Key: Name
           Value: T3-Wagu-Public-Subnet-A
+        - Key: kubernetes.io/cluster/T3-Wagu-Game
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
 
   T3WaguPublicSubnetB:
     Type: AWS::EC2::Subnet
@@ -70,6 +74,11 @@ Resources:
       Tags:
         - Key: Name
           Value: T3-Wagu-Public-Subnet-B
+        - Key: kubernetes.io/cluster/T3-Wagu-Game
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
 
 # =====================
 # Private Subnets
@@ -80,9 +89,14 @@ Resources:
       VpcId: !Ref T3WaguGameVPC
       CidrBlock: 10.1.20.0/24
       AvailabilityZone: ap-northeast-2a
+      MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
           Value: T3-Wagu-Private-Subnet-A
+        - Key: kubernetes.io/cluster/T3-Wagu-Game
+          Value: shared
+        - Key: kubernetes.io/role/internal-elb
+          Value: 1
 
   T3WaguPrivateSubnetB:
     Type: AWS::EC2::Subnet
@@ -90,9 +104,14 @@ Resources:
       VpcId: !Ref T3WaguGameVPC
       CidrBlock: 10.1.21.0/24
       AvailabilityZone: ap-northeast-2c
+      MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
           Value: T3-Wagu-Private-Subnet-B
+        - Key: kubernetes.io/cluster/T3-Wagu-Game
+          Value: shared
+        - Key: kubernetes.io/role/internal-elb
+          Value: 1
 
 # =====================
 # Public Route Table
@@ -208,28 +227,29 @@ Resources:
 # Outputs
 # =====================
 Outputs:
-  T3WaguGameVPCId:
+  GameVPCId:
     Description: T3-Wagu Game VPC ID
     Value: !Ref T3WaguGameVPC
     Export:
-      Name: T3WaguGameVPCId
+      Name: !Sub "${ProjectPrefix}-Game-VPC-Id"
 
-  T3WaguPublicSubnetAId:
+  GamePublicSubnetAId:
     Value: !Ref T3WaguPublicSubnetA
     Export:
-      Name: T3WaguPublicSubnetAId
+      Name: !Sub "${ProjectPrefix}-Game-Public-Subnet-A-Id"
 
-  T3WaguPublicSubnetBId:
+  GamePublicSubnetBId:
     Value: !Ref T3WaguPublicSubnetB
     Export:
-      Name: T3WaguPublicSubnetBId
+      Name: !Sub "${ProjectPrefix}-Game-Public-Subnet-B-Id"
 
-  T3WaguPrivateSubnetAId:
+  GamePrivateSubnetAId:
     Value: !Ref T3WaguPrivateSubnetA
     Export:
-      Name: T3WaguPrivateSubnetAId
+      Name: !Sub "${ProjectPrefix}-Game-Private-Subnet-A-Id"
 
-  T3WaguPrivateSubnetBId:
+  GamePrivateSubnetBId:
     Value: !Ref T3WaguPrivateSubnetB
     Export:
-      Name: T3WaguPrivateSubnetBId
+      Name: !Sub "${ProjectPrefix}-Game-Private-Subnet-B-Id"
+
