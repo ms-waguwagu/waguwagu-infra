@@ -1,12 +1,25 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description:
-  T3-Wagu Game VPC with Public and Private Subnets
+  T3-Wagu Game VPC with Public, Private Subnets and VPC Peering to Matching VPC
 
-  # ============================================================
-  # T3-Wagu Game VPC with Public and Private Subnets
-  # ============================================================
+# =====================
+# Parameters
+# =====================
+Parameters:
+  MatchingVPCId:
+    Type: String
+    Description: VPC ID of T3-Wagu-Matching-VPC
+
+  MatchingVPCCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block of T3-Wagu-Matching-VPC
 
 Resources:
+
+# =====================
+# Game VPC
+# =====================
   T3WaguGameVPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -17,10 +30,9 @@ Resources:
         - Key: Name
           Value: T3-Wagu-Game-VPC
 
-  # ============================================================
-  # Internet Gateway
-  # ============================================================
-
+# =====================
+# Internet Gateway
+# =====================
   T3WaguInternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -34,10 +46,9 @@ Resources:
       VpcId: !Ref T3WaguGameVPC
       InternetGatewayId: !Ref T3WaguInternetGateway
 
-  # ============================================================
-  # Public Subnets
-  # ============================================================
-
+# =====================
+# Public Subnets
+# =====================
   T3WaguPublicSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -48,7 +59,6 @@ Resources:
       Tags:
         - Key: Name
           Value: T3-Wagu-Public-Subnet-A
-
 
   T3WaguPublicSubnetB:
     Type: AWS::EC2::Subnet
@@ -61,10 +71,9 @@ Resources:
         - Key: Name
           Value: T3-Wagu-Public-Subnet-B
 
-  # ============================================================
-  # Private Subnets
-  # ============================================================
-
+# =====================
+# Private Subnets
+# =====================
   T3WaguPrivateSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -85,10 +94,9 @@ Resources:
         - Key: Name
           Value: T3-Wagu-Private-Subnet-B
 
-  # ============================================================
-  # Public Route Table
-  # ============================================================
-
+# =====================
+# Public Route Table
+# =====================
   T3WaguPublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -117,9 +125,9 @@ Resources:
       SubnetId: !Ref T3WaguPublicSubnetB
       RouteTableId: !Ref T3WaguPublicRouteTable
 
-  # ============================================================
-  # Elastic IP for NAT Gateway
-  # ============================================================
+# =====================
+# NAT Gateway
+# =====================
   T3WaguNatEIP:
     Type: AWS::EC2::EIP
     Properties:
@@ -128,9 +136,6 @@ Resources:
         - Key: Name
           Value: T3-Wagu-NAT-EIP
 
-  # ============================================================
-  # NAT Gateway (Public Subnet A)
-  # ============================================================
   T3WaguNatGateway:
     Type: AWS::EC2::NatGateway
     Properties:
@@ -140,9 +145,9 @@ Resources:
         - Key: Name
           Value: T3-Wagu-NAT-GW
 
-  # ============================================================
-  # Private Route Table
-  # ============================================================
+# =====================
+# Private Route Table
+# =====================
   T3WaguPrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -170,11 +175,39 @@ Resources:
       SubnetId: !Ref T3WaguPrivateSubnetB
       RouteTableId: !Ref T3WaguPrivateRouteTable
 
+# =====================
+# VPC Peering (Game <-> Matching)
+# =====================
+  T3WaguGameToMatchingPeering:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: !Ref T3WaguGameVPC
+      PeerVpcId: !Ref MatchingVPCId
+      Tags:
+        - Key: Name
+          Value: T3-Wagu-Game-Matching-Peering
 
+# =====================
+# Routes to Matching VPC
+# =====================
+  T3WaguPublicRouteToMatchingVPC:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref T3WaguPublicRouteTable
+      DestinationCidrBlock: !Ref MatchingVPCCidr
+      VpcPeeringConnectionId: !Ref T3WaguGameToMatchingPeering
+
+  T3WaguPrivateRouteToMatchingVPC:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref T3WaguPrivateRouteTable
+      DestinationCidrBlock: !Ref MatchingVPCCidr
+      VpcPeeringConnectionId: !Ref T3WaguGameToMatchingPeering
+
+# =====================
+# Outputs
+# =====================
 Outputs:
-  # ============================================================
-  # VPC & Subnet Exports
-  # ============================================================
   T3WaguGameVPCId:
     Description: T3-Wagu Game VPC ID
     Value: !Ref T3WaguGameVPC
@@ -182,26 +215,21 @@ Outputs:
       Name: T3WaguGameVPCId
 
   T3WaguPublicSubnetAId:
-    Description: Public Subnet A ID
     Value: !Ref T3WaguPublicSubnetA
     Export:
       Name: T3WaguPublicSubnetAId
 
   T3WaguPublicSubnetBId:
-    Description: Public Subnet B ID
     Value: !Ref T3WaguPublicSubnetB
     Export:
       Name: T3WaguPublicSubnetBId
 
   T3WaguPrivateSubnetAId:
-    Description: Private Subnet A ID
     Value: !Ref T3WaguPrivateSubnetA
     Export:
       Name: T3WaguPrivateSubnetAId
 
   T3WaguPrivateSubnetBId:
-    Description: Private Subnet B ID
     Value: !Ref T3WaguPrivateSubnetB
     Export:
       Name: T3WaguPrivateSubnetBId
-
