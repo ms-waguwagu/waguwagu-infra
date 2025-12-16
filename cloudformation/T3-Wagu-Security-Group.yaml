@@ -6,14 +6,6 @@ Parameters:
     Type: String
     Default: T3-Wagu
 
-  MatchingVpcId:
-    Type: String
-    Description: Matching VPC ID (from VPC stack output)
-
-  GameVpcId:
-    Type: String
-    Description: Game VPC ID (from VPC stack output)
-
 Resources:
   ############################################################
   # 1) Matching ALB SG
@@ -22,7 +14,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Matching ALB SG
-      VpcId: !Ref MatchingVpcId
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 443
@@ -41,7 +33,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Game ALB SG
-      VpcId: !Ref GameVpcId
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 443
@@ -60,7 +52,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Matching EKS Node SG
-      VpcId: !Ref MatchingVpcId
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
       SecurityGroupIngress:
         # ALB → Matching Server
         - IpProtocol: tcp
@@ -80,7 +72,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Game EKS Node SG
-      VpcId: !Ref GameVpcId
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
       SecurityGroupIngress:
         # ALB → Game Server
         - IpProtocol: tcp
@@ -92,7 +84,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3001
           ToPort: 3001
-          CidrIp: 10.0.0.0/16   # Matching VPC CIDR
+          CidrIp: 10.0.0.0/16 # Matching VPC CIDR
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Game-EKS-Node-SG"
@@ -106,7 +98,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Valkey SG
-      VpcId: !Ref MatchingVpcId
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 6379

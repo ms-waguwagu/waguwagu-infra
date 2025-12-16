@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: T3-Wagu Matching + Game VPC with VPC Peering (Bi-directional)
+Description: WAGUWAGU Matching + Game VPC with VPC Peering (Bi-directional)
 
 Parameters:
   ProjectPrefix:
