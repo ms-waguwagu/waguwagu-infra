@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: WAGUWAGU Matching + Game VPC with VPC Peering (Bi-directional)
+Description: WAGUWAGU Matching + Game VPC
 
 Parameters:
   ProjectPrefix:
@@ -269,7 +269,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Game-Public-Subnet-A"
-        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game-EKS"
           Value: shared
         - Key: kubernetes.io/role/elb
           Value: 1
@@ -284,7 +284,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Game-Public-Subnet-B"
-        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game-EKS"
           Value: shared
         - Key: kubernetes.io/role/elb
           Value: 1
@@ -403,51 +403,6 @@ Resources:
       SubnetId: !Ref GamePrivateSubnetB
       RouteTableId: !Ref GamePrivateRouteTable
 
-  ############################################################
-  # VPC Peering (Same stack)
-  ############################################################
-  GameToMatchingPeering:
-    Type: AWS::EC2::VPCPeeringConnection
-    Properties:
-      VpcId: !Ref GameVPC
-      PeerVpcId: !Ref MatchingVPC
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Game-Matching-Peering"
-
-  ############################################################
-  # Routes: Game -> Matching
-  ############################################################
-  GamePublicRouteToMatching:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref GamePublicRouteTable
-      DestinationCidrBlock: !Ref MatchingVPCCidr
-      VpcPeeringConnectionId: !Ref GameToMatchingPeering
-
-  GamePrivateRouteToMatching:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref GamePrivateRouteTable
-      DestinationCidrBlock: !Ref MatchingVPCCidr
-      VpcPeeringConnectionId: !Ref GameToMatchingPeering
-
-  ############################################################
-  # Routes: Matching -> Game
-  ############################################################
-  MatchingPublicRouteToGame:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref MatchingPublicRT
-      DestinationCidrBlock: !Ref GameVPCCidr
-      VpcPeeringConnectionId: !Ref GameToMatchingPeering
-
-  MatchingPrivateRouteToGame:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref MatchingPrivateRT
-      DestinationCidrBlock: !Ref GameVPCCidr
-      VpcPeeringConnectionId: !Ref GameToMatchingPeering
 
 Outputs:
   MatchingVPCId:
@@ -480,8 +435,3 @@ Outputs:
     Value: !Join [",", [!Ref GamePrivateSubnetA, !Ref GamePrivateSubnetB]]
     Export:
       Name: !Sub "${ProjectPrefix}-Game-Private-Subnet-Ids"
-
-  VpcPeeringConnectionId:
-    Value: !Ref GameToMatchingPeering
-    Export:
-      Name: !Sub "${ProjectPrefix}-Game-Matching-Peering-Id"
