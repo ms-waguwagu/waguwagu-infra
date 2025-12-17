@@ -54,7 +54,7 @@ Resources:
       GroupDescription: Matching EKS Node SG
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
       SecurityGroupIngress:
-        # ALB → Matching Server
+        # ALB -> Matching Server
         - IpProtocol: tcp
           FromPort: 3000
           ToPort: 3000
@@ -74,13 +74,13 @@ Resources:
       GroupDescription: Game EKS Node SG
       VpcId: !ImportValue T3-Wagu-Game-VPC-Id
       SecurityGroupIngress:
-        # ALB → Game Server
+        # ALB -> Game Server
         - IpProtocol: tcp
           FromPort: 3001
           ToPort: 3001
           SourceSecurityGroupId: !Ref GameAlbSG
 
-        # Matching → Game (VPC Peering)
+        # Matching -> Game (VPC Peering)
         - IpProtocol: tcp
           FromPort: 3001
           ToPort: 3001
