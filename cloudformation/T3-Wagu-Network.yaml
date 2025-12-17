@@ -323,6 +323,32 @@ Resources:
           Value: 1
 
   ############################################################
+  # Game Private DB Subnets
+  ############################################################
+  GamePrivateDbSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.30.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-DB-Subnet-A"
+
+  GamePrivateDbSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.31.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-DB-Subnet-B"
+
+
+  ############################################################
   # Game Public Route Table
   ############################################################
   GamePublicRouteTable:
@@ -403,6 +429,18 @@ Resources:
       SubnetId: !Ref GamePrivateSubnetB
       RouteTableId: !Ref GamePrivateRouteTable
 
+  GamePrivateDbSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePrivateDbSubnetA
+      RouteTableId: !Ref GamePrivateRouteTable
+
+  GamePrivateDbSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePrivateDbSubnetB
+      RouteTableId: !Ref GamePrivateRouteTable
+
 
 Outputs:
   MatchingVPCId:
@@ -421,6 +459,12 @@ Outputs:
     Export:
       Name: !Sub "${ProjectPrefix}-Matching-Private-Subnet-Ids"
 
+  MatchingPrivateDbSubnetIds:
+    Value:
+      !Join [",", [!Ref MatchingPrivateDbSubnetA, !Ref MatchingPrivateDbSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-Private-Db-Subnet-Ids"
+      
   GameVPCId:
     Value: !Ref GameVPC
     Export:
@@ -435,3 +479,8 @@ Outputs:
     Value: !Join [",", [!Ref GamePrivateSubnetA, !Ref GamePrivateSubnetB]]
     Export:
       Name: !Sub "${ProjectPrefix}-Game-Private-Subnet-Ids"
+
+  GamePrivateDbSubnetIds:
+    Value: !Join [",", [!Ref GamePrivateDbSubnetA, !Ref GamePrivateDbSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-Private-Db-Subnet-Ids"

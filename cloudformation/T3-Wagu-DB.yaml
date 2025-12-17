@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: T3-Wagu RDS MySQL Database Stack
+
+Parameters:
+  DBName:
+    Type: String
+    Default: t3wagudb
+  DBUsername:
+    Type: String
+    NoEcho: true
+  DBPassword:
+    Type: String
+    NoEcho: true
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+  AllocatedStorage:
+    Type: Number
+    Default: 20
+
+Resources:
+  WaguDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow MySQL access
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+
+  WaguDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for Wagu RDS
+      SubnetIds: !Split
+        - ","
+        - !ImportValue T3-Wagu-Game-Private-Db-Subnet-Ids
+
+  WaguDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: t3-wagu-db
+      Engine: mysql
+      EngineVersion: "8.0"
+      DBName: !Ref DBName
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref AllocatedStorage
+      StorageType: gp2
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 7
+      VPCSecurityGroups:
+        - !Ref WaguDBSecurityGroup
+      DBSubnetGroupName: !Ref WaguDBSubnetGroup
+      DeletionProtection: false
+
+Outputs:
+  DBEndpoint:
+    Description: RDS Endpoint
+    Value: !GetAtt WaguDBInstance.Endpoint.Address
+  DBPort:
+    Description: RDS Port
+    Value: !GetAtt WaguDBInstance.Endpoint.Port

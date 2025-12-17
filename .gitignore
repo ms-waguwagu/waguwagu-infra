@@ -1,6 +1,9 @@
 # Local .terraform directories
 .terraform/
 
+#DB username, password
+db-parameters.json
+
 # .tfstate files
 *.tfstate
 *.tfstate.*
