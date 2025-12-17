@@ -3,7 +3,6 @@ variable "region" {
   default = "ap-northeast-2"
 }
 
-
 # EKS 모듈 outputs 사용
 provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
@@ -29,4 +28,5 @@ provider "helm" {
   }
   repository_config_path = "${path.root}/.helm/repositories.yaml"
   repository_cache       = "${path.root}/.helm/cache"
+
 }
