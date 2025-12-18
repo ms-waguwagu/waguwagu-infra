@@ -1,0 +1,144 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Jenkins Server for WAGUWAGU
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu
+  
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+  
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
+    Description: Latest Amazon Linux 2023 AMI ID from SSM Parameter Store
+
+Resources:
+  ############################################################
+  # IAM Role for Jenkins
+  ############################################################
+  JenkinsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectPrefix}-Jenkins-Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: JenkinsECRPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:GetRepositoryPolicy
+                  - ecr:DescribeRepositories
+                  - ecr:ListImages
+                  - ecr:DescribeImages
+                  - ecr:BatchGetImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                Resource: "*"
+
+  JenkinsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref JenkinsRole
+      InstanceProfileName: !Sub "${ProjectPrefix}-Jenkins-Instance-Profile"
+
+  ############################################################
+  # Security Group for Jenkins (NO inbound rules)
+  ############################################################
+  JenkinsSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Jenkins Server (SSM-only)
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
+      # 인바운드(22/8080) 완전 제거 -> SSM으로만 접속하고, UI는 SSM 포트포워딩으로 접속
+      SecurityGroupIngress: []
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # Jenkins EC2 Instance
+  ############################################################
+  JenkinsInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref JenkinsInstanceProfile
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: "0"
+          GroupSet:
+            - !Ref JenkinsSG
+          # 첫번째 서브넷 사용
+          SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Matching-Public-Subnet-Ids]]
+      
+       # Jenkins 자동 설치(UserData)
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+
+          dnf update -y
+
+          # Java 17 (Jenkins 실행 필수)
+          dnf install -y java-17-amazon-corretto
+
+          # Jenkins repo 추가
+          curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key | tee /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins > /dev/null
+          cat >/etc/yum.repos.d/jenkins.repo <<'EOF'
+          [jenkins]
+          name=Jenkins-stable
+          baseurl=https://pkg.jenkins.io/redhat-stable
+          gpgcheck=1
+          gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
+          EOF
+
+          dnf install -y jenkins
+
+          systemctl enable jenkins
+          systemctl start jenkins
+
+          # 설치 확인용 로그
+          systemctl status jenkins --no-pager || true
+      
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins"
+        - Key: Project
+          Value: WAGUWAGU
+
+Outputs:
+  JenkinsInstanceId:
+    Value: !Ref JenkinsInstance
+    Description: Instance ID of the Jenkins Server
+    Export:
+      Name: !Sub "${ProjectPrefix}-Jenkins-Instance-Id"
+
+  JenkinsPublicIp:
+    Value: !GetAtt JenkinsInstance.PublicIp
+    Description: Public IP of the Jenkins Server
