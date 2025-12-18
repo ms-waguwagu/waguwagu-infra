@@ -97,6 +97,14 @@ resource "helm_release" "external_secrets" {
   chart      = "external-secrets"
   namespace  = kubernetes_namespace.external_secrets.metadata[0].name
 
+ # ✅ Helm이 리소스 Ready 될 때까지 기다리게
+  wait            = true
+  wait_for_jobs   = true
+  timeout         = 600 # seconds (10분 정도)
+  atomic          = true
+  cleanup_on_fail = true
+
+
   # 가급적 버전 고정 추천 (예: "0.10.5" 같은 식)
   # version = "..."
 
@@ -117,6 +125,9 @@ resource "helm_release" "external_secrets" {
 
   depends_on = [
     aws_iam_role_policy_attachment.eso_attach,
-    kubernetes_service_account.eso_sa
+    kubernetes_service_account.eso_sa,
+
+    # ✅ 같은 root에 있다면 추가!
+    helm_release.alb_controller
   ]
 }
