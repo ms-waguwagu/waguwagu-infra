@@ -14,8 +14,8 @@ variable "subnet_a_id" {
   type        = string
 }
 
-variable "subnet_b_id" {
-  description = "Subnet ID for Node Group B"
+variable "subnet_c_id" {
+  description = "Subnet ID for Node Group C"
   type        = string
 }
 
@@ -30,10 +30,10 @@ variable "node_group_name_a" {
   default     = "node-group-a"
 }
 
-variable "node_group_name_b" {
-  description = "Name of the EKS node group B"
+variable "node_group_name_c" {
+  description = "Name of the EKS node group C"
   type        = string
-  default     = "node-group-b"
+  default     = "node-group-c"
 }
 
 variable "instance_types" {
