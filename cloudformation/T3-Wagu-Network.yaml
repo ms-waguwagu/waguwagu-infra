@@ -163,7 +163,7 @@ Resources:
     Properties:
       RouteTableId: !Ref MatchingPublicRT
       DestinationCidrBlock: !GetAtt GameVPC.CidrBlock
-    VpcPeeringConnectionId: !Ref MatchingToGamePeering
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
 
   MatchingPublicAssocA:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -382,7 +382,7 @@ Resources:
     Properties:
       RouteTableId: !Ref GamePublicRouteTable
       DestinationCidrBlock: !GetAtt MatchingVPC.CidrBlock
-    VpcPeeringConnectionId: !Ref MatchingToGamePeering
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
 
   GamePublicSubnetARouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -457,6 +457,37 @@ Resources:
     Properties:
       SubnetId: !Ref GamePrivateDbSubnetB
       RouteTableId: !Ref GamePrivateRouteTable
+
+  ############################################################
+  # VPC Peering Connection (Matching <-> Game)
+  ############################################################
+  MatchingToGamePeering:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: !Ref MatchingVPC
+      PeerVpcId: !Ref GameVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Game-Peering"
+
+  # Private Route: Matching -> Game
+  MatchingPrivateRouteToGameVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref MatchingPrivateRT
+      DestinationCidrBlock: !GetAtt GameVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
+  # Private Route: Game -> Matching
+  GamePrivateRouteToMatchingVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref GamePrivateRouteTable
+      DestinationCidrBlock: !GetAtt MatchingVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
 
 Outputs:
   MatchingVPCId:
