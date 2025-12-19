@@ -18,6 +18,20 @@ Parameters:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
     Description: Latest Amazon Linux 2023 AMI ID from SSM Parameter Store
+  
+
+  JenkinsAdminUser:
+    Type: String
+    Default: admin
+
+  JenkinsAdminPassword:
+    Type: String
+    NoEcho: true
+
+  JenkinsBaseUrl:
+    Type: String
+    Default: ""   # 예: http://your-domain-or-ip:8080 (없으면 빈 값)
+
 
 Resources:
   ############################################################
@@ -36,6 +50,10 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
       Policies:
         - PolicyName: JenkinsECRPolicy
           PolicyDocument:
@@ -70,10 +88,26 @@ Resources:
   JenkinsMatchingSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security Group for Jenkins Matching Server (SSM-only)
+      GroupDescription: Security Group for Jenkins Matching Server (SSM + GitHub Webhook)
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
-      # 인바운드(22/8080) 완전 제거 -> SSM으로만 접속하고, UI는 SSM 포트포워딩으로 접속
-      SecurityGroupIngress: []
+
+      SecurityGroupIngress:
+      # GitHub Webhook → Jenkins (HTTP 8080)
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: 140.82.112.0/20
+
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: 192.30.252.0/22
+
+      # 아웃바운드는 전체 허용 (SSM, GitHub, ECR, EKS 접근용)
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+    
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
@@ -116,13 +150,12 @@ Resources:
        # Jenkins 자동 설치(UserData)
       UserData:
         Fn::Base64: !Sub |
+          Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
 
           dnf update -y
-
-          # Java 17 (Jenkins 실행 필수)
-          dnf install -y java-17-amazon-corretto
+          dnf install -y java-17-amazon-corretto git curl unzip
 
           # Jenkins repo 추가
           curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key | tee /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins > /dev/null
@@ -136,11 +169,93 @@ Resources:
 
           dnf install -y jenkins
 
+          # 1) Setup Wizard 스킵 (Unlock/초기화면 설치 단계 제거)
+          #    -Djenkins.install.runSetupWizard=false 가 핵심 :contentReference[oaicite:1]{index=1}
+          mkdir -p /etc/sysconfig
+          if [ -f /etc/sysconfig/jenkins ]; then
+            sed -i 's/^JENKINS_JAVA_OPTIONS=.*/JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"/' /etc/sysconfig/jenkins || true
+            grep -q 'JENKINS_JAVA_OPTIONS' /etc/sysconfig/jenkins || echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
+          else
+            echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' > /etc/sysconfig/jenkins
+          fi
+
+          # Jenkins는 플러그인/초기 설정 전에 멈춰두는게 안전
           systemctl enable jenkins
+          systemctl stop jenkins || true
+
+          # 2) 관리자 계정 자동 생성 + 보안 설정 (첫 부팅 시 자동 실행)
+          mkdir -p /var/lib/jenkins/init.groovy.d
+          cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
+          import jenkins.model.*
+          import hudson.security.*
+          import jenkins.model.JenkinsLocationConfiguration
+
+          def instance = Jenkins.get()
+
+          // Admin user
+          def adminUser = "${JenkinsAdminUser}"
+          def adminPass = "${JenkinsAdminPassword}"
+
+          def realm = new HudsonPrivateSecurityRealm(false)
+          if (realm.getUser(adminUser) == null) {
+            realm.createAccount(adminUser, adminPass)
+          }
+          instance.setSecurityRealm(realm)
+
+          def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
+          strategy.setAllowAnonymousRead(false)
+          instance.setAuthorizationStrategy(strategy)
+
+          // Base URL (선택)
+          def baseUrl = "${JenkinsBaseUrl}"
+          if (baseUrl != null && baseUrl.trim().length() > 0) {
+            def loc = JenkinsLocationConfiguration.get()
+            loc.setUrl(baseUrl.trim())
+            loc.save()
+          }
+
+          instance.save()
+          GROOVY
+
+          chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
+
+          # 3) 필수 플러그인 자동 설치 (Plugin Installation Manager 사용)
+          #    원하는 플러그인 추가 가능
+          cat >/tmp/plugins.txt <<'PLUGINS'
+          configuration-as-code
+          workflow-aggregator
+          git
+          github
+          credentials-binding
+          ssh-credentials
+          docker-workflow
+          pipeline-stage-view
+          timestamper
+          PLUGINS
+
+          # plugin-manager-tool 다운로드 (latest)
+          curl -L -o /tmp/jpim.jar https://github.com/jenkinsci/plugin-installation-manager-tool/releases/latest/download/jenkins-plugin-manager-2.12.15.jar || true
+          # 위 파일명이 바뀔 수 있음. 실패하면 아래 대안으로 교체해도 됨.
+          # curl -L -o /tmp/jpim.jar https://github.com/jenkinsci/plugin-installation-manager-tool/releases/latest/download/jenkins-plugin-manager.jar
+
+          mkdir -p /var/lib/jenkins/plugins
+          chown -R jenkins:jenkins /var/lib/jenkins/plugins
+
+          if [ -f /tmp/jpim.jar ]; then
+            java -jar /tmp/jpim.jar \
+              --war /usr/share/java/jenkins.war \
+              --plugin-file /tmp/plugins.txt \
+              --plugin-download-directory /var/lib/jenkins/plugins
+          fi
+
+          chown -R jenkins:jenkins /var/lib/jenkins/plugins
+
+          # Jenkins 시작
           systemctl start jenkins
 
-          # 설치 확인용 로그
+          # 확인 로그
           systemctl status jenkins --no-pager || true
+
       
       Tags:
         - Key: Name
@@ -165,16 +280,41 @@ Resources:
           # 첫번째 서브넷 사용
           SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Game-Public-Subnet-Ids]]
       
-       # Jenkins 자동 설치(UserData)
+       # Jenkins 자동 설치(UserData) 혹시 몰라서 남겨둡니다 ㅎ..
+      # UserData:
+      #   Fn::Base64: !Sub |
+      #     #!/bin/bash
+      #     set -euxo pipefail
+
+      #     dnf update -y
+
+      #     # Java 17 (Jenkins 실행 필수)
+      #     dnf install -y java-17-amazon-corretto
+
+      #     # Jenkins repo 추가
+      #     curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key | tee /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins > /dev/null
+      #     cat >/etc/yum.repos.d/jenkins.repo <<'EOF'
+      #     [jenkins]
+      #     name=Jenkins-stable
+      #     baseurl=https://pkg.jenkins.io/redhat-stable
+      #     gpgcheck=1
+      #     gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins
+      #     EOF
+
+      #     dnf install -y jenkins
+
+      #     systemctl enable jenkins
+      #     systemctl start jenkins
+
+      #     # 설치 확인용 로그
+      #     systemctl status jenkins --no-pager || true
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
 
           dnf update -y
-
-          # Java 17 (Jenkins 실행 필수)
-          dnf install -y java-17-amazon-corretto
+          dnf install -y java-17-amazon-corretto git curl unzip
 
           # Jenkins repo 추가
           curl -fsSL https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key | tee /etc/pki/rpm-gpg/RPM-GPG-KEY-jenkins > /dev/null
@@ -188,11 +328,93 @@ Resources:
 
           dnf install -y jenkins
 
+          # 1) Setup Wizard 스킵 (Unlock/초기화면 설치 단계 제거)
+          #    -Djenkins.install.runSetupWizard=false 가 핵심 :contentReference[oaicite:1]{index=1}
+          mkdir -p /etc/sysconfig
+          if [ -f /etc/sysconfig/jenkins ]; then
+            sed -i 's/^JENKINS_JAVA_OPTIONS=.*/JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"/' /etc/sysconfig/jenkins || true
+            grep -q 'JENKINS_JAVA_OPTIONS' /etc/sysconfig/jenkins || echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
+          else
+            echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' > /etc/sysconfig/jenkins
+          fi
+
+          # Jenkins는 플러그인/초기 설정 전에 멈춰두는게 안전
           systemctl enable jenkins
+          systemctl stop jenkins || true
+
+          # 2) 관리자 계정 자동 생성 + 보안 설정 (첫 부팅 시 자동 실행)
+          mkdir -p /var/lib/jenkins/init.groovy.d
+          cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
+          import jenkins.model.*
+          import hudson.security.*
+          import jenkins.model.JenkinsLocationConfiguration
+
+          def instance = Jenkins.get()
+
+          // Admin user
+          def adminUser = "${JenkinsAdminUser}"
+          def adminPass = "${JenkinsAdminPassword}"
+
+          def realm = new HudsonPrivateSecurityRealm(false)
+          if (realm.getUser(adminUser) == null) {
+            realm.createAccount(adminUser, adminPass)
+          }
+          instance.setSecurityRealm(realm)
+
+          def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
+          strategy.setAllowAnonymousRead(false)
+          instance.setAuthorizationStrategy(strategy)
+
+          // Base URL (선택)
+          def baseUrl = "${JenkinsBaseUrl}"
+          if (baseUrl != null && baseUrl.trim().length() > 0) {
+            def loc = JenkinsLocationConfiguration.get()
+            loc.setUrl(baseUrl.trim())
+            loc.save()
+          }
+
+          instance.save()
+          GROOVY
+
+          chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
+
+          # 3) 필수 플러그인 자동 설치 (Plugin Installation Manager 사용)
+          #    원하는 플러그인 추가 가능
+          cat >/tmp/plugins.txt <<'PLUGINS'
+          configuration-as-code
+          workflow-aggregator
+          git
+          github
+          credentials-binding
+          ssh-credentials
+          docker-workflow
+          pipeline-stage-view
+          timestamper
+          PLUGINS
+
+          # plugin-manager-tool 다운로드 (latest)
+          curl -L -o /tmp/jpim.jar https://github.com/jenkinsci/plugin-installation-manager-tool/releases/latest/download/jenkins-plugin-manager-2.12.15.jar || true
+          # 위 파일명이 바뀔 수 있음. 실패하면 아래 대안으로 교체해도 됨.
+          # curl -L -o /tmp/jpim.jar https://github.com/jenkinsci/plugin-installation-manager-tool/releases/latest/download/jenkins-plugin-manager.jar
+
+          mkdir -p /var/lib/jenkins/plugins
+          chown -R jenkins:jenkins /var/lib/jenkins/plugins
+
+          if [ -f /tmp/jpim.jar ]; then
+            java -jar /tmp/jpim.jar \
+              --war /usr/share/java/jenkins.war \
+              --plugin-file /tmp/plugins.txt \
+              --plugin-download-directory /var/lib/jenkins/plugins
+          fi
+
+          chown -R jenkins:jenkins /var/lib/jenkins/plugins
+
+          # Jenkins 시작
           systemctl start jenkins
 
-          # 설치 확인용 로그
+          # 확인 로그
           systemctl status jenkins --no-pager || true
+
       
       Tags:
         - Key: Name
