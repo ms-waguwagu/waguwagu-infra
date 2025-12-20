@@ -82,53 +82,6 @@ Resources:
         - !Ref JenkinsRole
       InstanceProfileName: !Sub "${ProjectPrefix}-Jenkins-Instance-Profile"
 
-  ############################################################
-  # Security Group for Jenkins Matching (NO inbound rules)
-  ############################################################
-  JenkinsMatchingSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security Group for Jenkins Matching Server (SSM + GitHub Webhook)
-      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
-
-      SecurityGroupIngress:
-      # GitHub Webhook → Jenkins (HTTP 8080)
-      - IpProtocol: tcp
-        FromPort: 8080
-        ToPort: 8080
-        CidrIp: 140.82.112.0/20
-
-      - IpProtocol: tcp
-        FromPort: 8080
-        ToPort: 8080
-        CidrIp: 192.30.252.0/22
-
-      # 아웃바운드는 전체 허용 (SSM, GitHub, ECR, EKS 접근용)
-      SecurityGroupEgress:
-      - IpProtocol: -1
-        CidrIp: 0.0.0.0/0
-    
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
-        - Key: Project
-          Value: WAGUWAGU
-
-  ############################################################
-  # Security Group for Jenkins Game (NO inbound rules)
-  ############################################################
-  JenkinsGameSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security Group for Jenkins Game Server (SSM-only)
-      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
-      # 인바운드(22/8080) 완전 제거 -> SSM으로만 접속하고, UI는 SSM 포트포워딩으로 접속
-      SecurityGroupIngress: []
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
-        - Key: Project
-          Value: WAGUWAGU
 
   ############################################################
   # Jenkins EC2 Instance (Matching)
@@ -143,7 +96,7 @@ Resources:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           GroupSet:
-            - !Ref JenkinsMatchingSG
+            - !ImportValue T3-Wagu-JenkinsMatchingSGId
           # 첫번째 서브넷 사용
           SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Matching-Public-Subnet-Ids]]
       
@@ -239,7 +192,7 @@ Resources:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           GroupSet:
-            - !Ref JenkinsGameSG
+            - !ImportValue T3-Wagu-JenkinsGameSGId
           # 첫번째 서브넷 사용
           SubnetId: !Select [0, !Split [",", !ImportValue T3-Wagu-Game-Public-Subnet-Ids]]
       
