@@ -2,6 +2,7 @@ apiVersion: "agones.dev/v1"
 kind: Fleet
 metadata:
   name: waguwagu-fleet
+  namespace: game
   labels:
     app: waguwagu
 spec:
@@ -47,26 +48,29 @@ spec:
                 - containerPort: 3001
               env:
                 - name: GAME_PORT
-                  value: "3001"
+                  valueFrom:
+                    secretKeyRef:
+                      name: game-secret
+                      key: GAME_PORT
                 - name: DB_HOST
                   valueFrom:
                     secretKeyRef:
-                      name: game-db-secret
+                      name: game-secret
                       key: DB_HOST
                 - name: DB_USER
                   valueFrom:
                     secretKeyRef:
-                      name: game-db-secret
+                      name: game-secret
                       key: DB_USER
                 - name: DB_NAME
                   valueFrom:
                     secretKeyRef:
-                      name: game-db-secret
+                      name: game-secret
                       key: DB_NAME
                 - name: DB_PASSWORD
                   valueFrom:
                     secretKeyRef:
-                      name: game-db-secret
+                      name: game-secret
                       key: DB_PASSWORD
               resources:
                 requests:
