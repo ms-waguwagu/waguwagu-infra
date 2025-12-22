@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: matching
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:1997ba6-5 # TODO: 매칭 서버 이미지로 교체 무조건 jenkins먼저해라!!!
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest # TODO: 매칭 서버 이미지로 교체 무조건 jenkins먼저해라!!!
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
@@ -27,9 +27,39 @@ spec:
                 secretKeyRef:
                   name: matching-secret
                   key: JWT_SECRET
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: REDIS_PORT
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: REDIS_PASSWORD
+
+            - name: MODE
+              value: "normal"
+            - name: MAX_PLAYERS
+              value: "5"
+
+            - name: AGONES_ALLOCATOR_ENDPOINT
+              value: "https://k8s-agonessy-agonesal-009dcdfc73-163385f94af508ae.elb.ap-northeast-2.amazonaws.com:443"
+            - name: AGONES_CLIENT_CERT_PATH
+              value: "/etc/agones/allocator/client/tls.crt"
+            - name: AGONES_CLIENT_KEY_PATH
+              value: "/etc/agones/allocator/client/tls.key"
+            - name: AGONES_CA_CERT_PATH
+              value: "/etc/agones/allocator/ca/tls-ca.crt"
+            
           readinessProbe:
             httpGet:
-              path: /health
+              path: /api/matching/health
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
