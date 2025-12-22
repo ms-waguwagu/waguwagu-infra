@@ -1,69 +1,82 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: T3-Wagu RDS MySQL Database Stack
+Description: T3-Wagu Production RDS MySQL Stack
 
 Parameters:
   DBName:
     Type: String
     Default: wagudb
+
   DBInstanceClass:
     Type: String
-    Default: db.t3.micro
+    Default: db.m5.large   # 운영 기준
+
   AllocatedStorage:
     Type: Number
-    Default: 20
+    Default: 50
 
-    # 마스터 계정 정보
   MasterUsername:
     Type: String
-    Description: Enter the master username for the DB
-    Default: t3_admin
+    Default: wagu_admin
     AllowedPattern: "[a-zA-Z0-9_]+"
 
   MasterPassword:
     Type: String
-    Description: Enter the master password for the DB (Min 8 chars)
     NoEcho: true
-    MinLength: 8
+    MinLength: 12
 
 Resources:
-  WaguDBSecurityGroup:
+  WaguProdDBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow MySQL access
+      GroupDescription: Allow MySQL from App VPC
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
 
-  WaguDBSubnetGroup:
+  WaguProdDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupDescription: Subnet group for Wagu RDS
+      DBSubnetGroupDescription: Prod subnet group for Wagu RDS
       SubnetIds: !Split
         - ","
         - !ImportValue T3-Wagu-Matching-Private-Db-Subnet-Ids
 
-  WaguDBInstance:
+  WaguProdDBInstance:
     Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot            # 삭제 시 스냅샷 남김
+    UpdateReplacePolicy: Snapshot       # 교체 시 스냅샷
     Properties:
-      DBInstanceIdentifier: t3-wagu-db
+      DBInstanceIdentifier: t3-wagu-prod-db
       Engine: mysql
-      EngineVersion: "8.0"
+      EngineVersion: "8.0.34"
       DBName: !Ref DBName
+
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: !Ref AllocatedStorage
-      StorageType: gp2
+      StorageType: gp3
+      StorageEncrypted: true
+
       MasterUsername: !Ref MasterUsername
       MasterUserPassword: !Ref MasterPassword
-      PubliclyAccessible: false
-      MultiAZ: true
-      BackupRetentionPeriod: 7
+
+      PubliclyAccessible: false         # 내부 접근만
+      MultiAZ: true                     # 고가용성
+      BackupRetentionPeriod: 14         # 운영 백업
+      PreferredBackupWindow: 02:00-03:00
+
       VPCSecurityGroups:
-        - !Ref WaguDBSecurityGroup
-      DBSubnetGroupName: !Ref WaguDBSubnetGroup
-      DeletionProtection: false
+        - !Ref WaguProdDBSecurityGroup
+      DBSubnetGroupName: !Ref WaguProdDBSubnetGroup
+
+      DeletionProtection: true      
+      EnableCloudwatchLogsExports:
+        - error
+        - general
+        - slowquery
 
 Outputs:
-  DBEndpoint:
-    Description: RDS Endpoint
-    Value: !GetAtt WaguDBInstance.Endpoint.Address
-  DBPort:
-    Description: RDS Port
-    Value: !GetAtt WaguDBInstance.Endpoint.Port
+  ProdDBEndpoint:
+    Description: Production RDS Endpoint
+    Value: !GetAtt WaguProdDBInstance.Endpoint.Address
+
+  ProdDBPort:
+    Description: Production RDS Port
+    Value: !GetAtt WaguProdDBInstance.Endpoint.Port
