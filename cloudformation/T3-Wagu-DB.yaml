@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Description: T3-Wagu RDS MySQL Database Stack
 
 Parameters:
@@ -11,13 +11,13 @@ Parameters:
   AllocatedStorage:
     Type: Number
     Default: 20
-  
-   # 마스터 계정 정보
+
+    # 마스터 계정 정보
   MasterUsername:
     Type: String
     Description: Enter the master username for the DB
     Default: t3_admin
-    AllowedPattern: '[a-zA-Z0-9_]+'
+    AllowedPattern: "[a-zA-Z0-9_]+"
 
   MasterPassword:
     Type: String
@@ -30,8 +30,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow MySQL access
-      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
-
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
 
   WaguDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -39,7 +38,7 @@ Resources:
       DBSubnetGroupDescription: Subnet group for Wagu RDS
       SubnetIds: !Split
         - ","
-        - !ImportValue T3-Wagu-Game-Private-Db-Subnet-Ids
+        - !ImportValue T3-Wagu-Matching-Private-Db-Subnet-Ids
 
   WaguDBInstance:
     Type: AWS::RDS::DBInstance
