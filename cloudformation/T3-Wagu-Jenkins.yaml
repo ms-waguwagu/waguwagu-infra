@@ -34,6 +34,27 @@ Parameters:
     Default: ""
     Description: "Optional. Example: http://your-domain-or-ip:8080 (leave blank if not used)"
 
+  #  Frontend S3 배포용 버킷명 (IAM 정책에서 사용)
+  #  frontend/Jenkinsfile의 S3_BUCKET 값과 동일해야 함
+  FrontendBucketName:
+    Type: String
+    Default: waguwagu-s3-bucket-061039804626-ap-northeast-2
+
+  ############################################################
+  # CloudFront Distribution ID를 저장해둘 Secrets Manager Secret 정보
+  # - Jenkinsfile에서 aws secretsmanager get-secret-value 로 값을 가져옴
+  # - SecretString(JSON) 안에 아래 Key로 Distribution ID를 넣어주면 됨
+  ############################################################
+  CloudFrontSecretName:
+    Type: String
+    Default: "T3-Wagu-Secrets"
+    Description: "Secrets Manager secret name that contains CloudFront Distribution ID"
+
+  CloudFrontSecretKey:
+    Type: String
+    Default: "CLOUDFRONT_DISTRIBUTION_ID"
+    Description: "Key inside SecretString JSON for CloudFront Distribution ID"
+
 Resources:
   ############################################################
   # IAM Role for Jenkins EC2
@@ -77,6 +98,49 @@ Resources:
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
                   - ecr:PutImage
+                Resource: "*"
+
+        # Frontend 배포(S3 sync) 권한 추가
+        - PolicyName: JenkinsFrontendS3Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource: !Sub "arn:aws:s3:::${FrontendBucketName}"
+
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "arn:aws:s3:::${FrontendBucketName}/*"
+
+        ############################################################
+        #  CloudFront 캐시 무효화(Invalidation) + Secrets Manager에서 Distribution ID 읽기
+        # - Jenkinsfile에서 aws secretsmanager get-secret-value 로 값을 읽고
+        # - aws cloudfront create-invalidation 으로 무효화 수행
+        ############################################################
+        - PolicyName: JenkinsCloudFrontInvalidationPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Secrets Manager 읽기 권한
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                # Secret ARN은 뒤에 랜덤 suffix가 붙어서 * 처리 필요
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${CloudFrontSecretName}-*"
+
+              # CloudFront 무효화 권한
+              # CloudFront는 리소스 단위 ARN 스코핑이 번거로워 실무에서도 Resource:"*"로 두는 경우 많음
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetDistribution
                 Resource: "*"
 
   JenkinsInstanceProfile:
@@ -135,6 +199,12 @@ Resources:
       GroupDescription: Security Group for Jenkins Game Server (SSM-only, no inbound)
       VpcId: !ImportValue T3-Wagu-Game-VPC-Id
       SecurityGroupIngress: []
+
+      # (누락 보완) 아웃바운드 전체 허용 (SSM/GitHub/ECR/S3/CloudFront 접근 목적)
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
@@ -144,7 +214,7 @@ Resources:
   ############################################################
   # Jenkins EC2 Instance (Matching)
   # - matching-ci Job을 init.groovy로 자동 생성
-  # - Poll SCM 트리거 적용, 5분마다
+  # - Poll SCM 트리거 적용, 2분마다
   ############################################################
   JenkinsInstanceMatching:
     Type: AWS::EC2::Instance
@@ -232,7 +302,7 @@ Resources:
           # Setup Wizard 스킵 시도 (환경에 따라 완전히 안 먹을 수도 있음)
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
-            sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
+            sed -i 's#^JENKINS_JAVA_OPTIONS="\\(.*\\)"#JENKINS_JAVA_OPTIONS="\\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
           else
             echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
           fi
@@ -273,7 +343,7 @@ Resources:
           instance.save()
           GROOVY
 
-          # Job 자동 생성 (matching-ci) + Poll SCM
+          # Job 자동 생성 (matching-ci / frontend-ci) + Poll SCM
           cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
           import jenkins.model.*
           import org.jenkinsci.plugins.workflow.job.WorkflowJob
@@ -310,13 +380,14 @@ Resources:
 
             job.definition = new CpsScmFlowDefinition(scm, scriptPath)
 
-            // Poll SCM: 5분마다 변경 감지
+            // Poll SCM: 2분마다 변경 감지
             job.addTrigger(new SCMTrigger("H/2 * * * *"))
 
             job.save()
           }
 
           ensurePipelineJob("matching-ci", "matching-server/Jenkinsfile")
+          ensurePipelineJob("frontend-ci", "frontend/Jenkinsfile")
           j.save()
           GROOVY
 
@@ -336,7 +407,7 @@ Resources:
   ############################################################
   # Jenkins EC2 Instance (Game)
   # - game-ci Job을 init.groovy로 자동 생성
-  # - Poll 트리거 적용, 5분마다
+  # - Poll 트리거 적용, 2분마다
   ############################################################
   JenkinsInstanceGame:
     Type: AWS::EC2::Instance
@@ -420,7 +491,7 @@ Resources:
           # Setup Wizard 스킵 시도
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
-            sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
+            sed -i 's#^JENKINS_JAVA_OPTIONS="\\(.*\\)"#JENKINS_JAVA_OPTIONS="\\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
           else
             echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
           fi
@@ -498,7 +569,7 @@ Resources:
 
             job.definition = new CpsScmFlowDefinition(scm, scriptPath)
 
-            // Poll SCM: 5분마다 변경 감지
+            // Poll SCM: 2분마다 변경 감지
             job.addTrigger(new SCMTrigger("H/2 * * * *"))
 
             job.save()
