@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "WAGUWAGU CloudWatch Dashboard - EC2 Core Metrics (Stable & Guaranteed)"
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu
+
+  JenkinsInstanceId:
+    Type: String
+    Description: EC2 InstanceId (Jenkins)
+
+Resources:
+  ############################################################
+  # CloudWatch Dashboard
+  ############################################################
+  EC2CoreDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "${ProjectPrefix}-EC2-Core-Dashboard"
+      DashboardBody:
+        Fn::Sub:
+          - |
+            {
+              "widgets": [
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "EC2 CPU Utilization",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [
+                        "AWS/EC2",
+                        "CPUUtilization",
+                        "InstanceId",
+                        "${InstanceId}",
+                        {
+                          "stat": "Average",
+                          "period": 300,
+                          "label": "CPU %"
+                        }
+                      ]
+                    ]
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "EC2 Network In / Out",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [
+                        "AWS/EC2",
+                        "NetworkIn",
+                        "InstanceId",
+                        "${InstanceId}",
+                        {
+                          "stat": "Sum",
+                          "period": 300,
+                          "label": "Network In"
+                        }
+                      ],
+                      [
+                        "AWS/EC2",
+                        "NetworkOut",
+                        "InstanceId",
+                        "${InstanceId}",
+                        {
+                          "stat": "Sum",
+                          "period": 300,
+                          "label": "Network Out"
+                        }
+                      ]
+                    ]
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 6,
+                  "width": 24,
+                  "height": 6,
+                  "properties": {
+                    "title": "EC2 Status Check Failed",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [
+                        "AWS/EC2",
+                        "StatusCheckFailed",
+                        "InstanceId",
+                        "${InstanceId}",
+                        {
+                          "stat": "Maximum",
+                          "period": 60,
+                          "label": "Status Check Failed"
+                        }
+                      ]
+                    ],
+                    "yAxis": {
+                      "left": {
+                        "min": 0,
+                        "max": 1
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          - InstanceId: !Ref JenkinsInstanceId
+
+Outputs:
+  DashboardName:
+    Description: EC2 Core Monitoring Dashboard
+    Value: !Ref EC2CoreDashboard
