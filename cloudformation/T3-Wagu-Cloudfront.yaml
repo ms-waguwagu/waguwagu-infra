@@ -36,7 +36,7 @@ Resources:
               - "${BucketName}.s3.${AWS::Region}.amazonaws.com"
               - BucketName: !ImportValue waguwagu-s3-bucket
             S3OriginConfig:
-              OriginAccessIdentity: "" # OAC »ç¿ë ½Ã ºñ¿öµÒ
+              OriginAccessIdentity: "" # OAC ì‚¬ìš© ì‹œ ë¹„ì›Œë‘ 
             OriginAccessControlId: !GetAtt TWCloudFrontOAC.Id
 
           - Id: WaguWaguMatchingOrigin
@@ -79,12 +79,12 @@ Resources:
               - HEAD
               - OPTIONS
             Compress: true
-            # CachingDisabled Managed Policy ID (API´Â Ä³½ÌÇÏ¸é ¾ÈµÊ)
+            # CachingDisabled Managed Policy ID (APIëŠ” ìºì‹±í•˜ë©´ ì•ˆë¨)
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-            # AllViewer Origin Request Policy ID (Çì´õ, ÄíÅ°, Äõ¸®½ºÆ®¸µ ¸ğµÎ Àü´Ş)
+            # AllViewer Origin Request Policy ID (í—¤ë”, ì¿ í‚¤, ì¿¼ë¦¬ìŠ¤íŠ¸ë§ ëª¨ë‘ ì „ë‹¬)
             OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
 
-        # SPA(Single Page Application)¸¦ À§ÇÑ ¿¡·¯ ÆäÀÌÁö ¼³Á¤ (React/Vue µî »ç¿ë ½Ã ÇÊ¼ö)
+        # SPA(Single Page Application)ë¥¼ ìœ„í•œ ì—ëŸ¬ í˜ì´ì§€ ì„¤ì • (React/Vue ë“± ì‚¬ìš© ì‹œ í•„ìˆ˜)
         CustomErrorResponses:
           - ErrorCode: 403
             ResponseCode: 200
