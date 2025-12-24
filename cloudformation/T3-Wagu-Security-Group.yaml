@@ -80,15 +80,15 @@ Resources:
           ToPort: 3001
           SourceSecurityGroupId: !Ref GameAlbSG
 
-        # (Ãß???) Matching -> Agones allocator (VPC Peering)
-        # allocator ???????? 443??? ?????? ?????? ??????. º¸Åë 443 ?????? 8443 ?? ??????
+        # (ì¶”ï¿½??) Matching -> Agones allocator (VPC Peering)
+        # allocator ?ï¿½ï¿½?ï¿½ï¿½ï¿½? 443?ï¿½ï¿½ ?ï¿½ï¿½?ï¿½ï¿½ ?ï¿½ï¿½?ï¿½ï¿½ ?ï¿½ï¿½?ï¿½ï¿½. ë³´í†µ 443 ?ï¿½ï¿½?ï¿½ï¿½ 8443 ï¿½? ?ï¿½ï¿½?ï¿½ï¿½
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: 10.0.0.0/16 # Matching VPC CIDR
 
-        # (Ãß???) User -> GameServer (Agones Dynamic Ports)
-        # TCP ±â¹Ý °ÔÀÓ????? TCP??.
+        # (ì¶”ï¿½??) User -> GameServer (Agones Dynamic Ports)
+        # TCP ê¸°ë°˜ ê²Œìž„?ï¿½ï¿½ï¿½? TCPï¿½?.
         - IpProtocol: tcp
           FromPort: 30000
           ToPort: 32767
@@ -134,7 +134,7 @@ Resources:
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
 
       SecurityGroupIngress:
-        # GitHub Webhook ??? Jenkins (HTTP 8080)
+        # GitHub Webhook ?ï¿½ï¿½ Jenkins (HTTP 8080)
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
@@ -145,7 +145,7 @@ Resources:
           ToPort: 8080
           CidrIp: 192.30.252.0/22
 
-      # ??????¹Ù¿î?????? ????? ?????? (SSM, GitHub, ECR, EKS ???±Ù¿ë)
+      # ?ï¿½ï¿½?ï¿½ï¿½ë°”ìš´?ï¿½ï¿½?ï¿½ï¿½ ?ï¿½ï¿½ï¿½? ?ï¿½ï¿½?ï¿½ï¿½ (SSM, GitHub, ECR, EKS ?ï¿½ï¿½ê·¼ìš©)
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -164,9 +164,9 @@ Resources:
     Properties:
       GroupDescription: Security Group for Jenkins Game Server (SSM-only)
       VpcId: !ImportValue T3-Wagu-Game-VPC-Id
-      # ???¹Ù¿î???(22/8080) ?????? ????? -> SSM???·Î¸¸ ???????????, UI??? SSM ???????????????????? ??????
+      # ?ï¿½ï¿½ë°”ìš´?ï¿½ï¿½(22/8080) ?ï¿½ï¿½?ï¿½ï¿½ ?ï¿½ï¿½ï¿½? -> SSM?ï¿½ï¿½ë¡œë§Œ ?ï¿½ï¿½?ï¿½ï¿½?ï¿½ï¿½ï¿½?, UI?ï¿½ï¿½ SSM ?ï¿½ï¿½?ï¿½ï¿½?ï¿½ï¿½?ï¿½ï¿½?ï¿½ï¿½?ï¿½ï¿½ï¿½? ?ï¿½ï¿½?ï¿½ï¿½
       SecurityGroupIngress:
-        # GitHub Webhook ??? Jenkins (HTTP 8080)
+        # GitHub Webhook ?ï¿½ï¿½ Jenkins (HTTP 8080)
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
@@ -177,7 +177,7 @@ Resources:
           ToPort: 8080
           CidrIp: 192.30.252.0/22
 
-      # ??????¹Ù¿î?????? ????? ?????? (SSM, GitHub, ECR, EKS ???±Ù¿ë)
+      # ?ï¿½ï¿½?ï¿½ï¿½ë°”ìš´?ï¿½ï¿½?ï¿½ï¿½ ?ï¿½ï¿½ï¿½? ?ï¿½ï¿½?ï¿½ï¿½ (SSM, GitHub, ECR, EKS ?ï¿½ï¿½ê·¼ìš©)
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0

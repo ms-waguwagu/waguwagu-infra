@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "WAGUWAGU CloudWatch Dashboard - Service Infra Monitoring"
+Description: "WAGUWAGU CloudWatch Dashboard - Service Infra Monitoring (Infra Focus)"
 
 Parameters:
   ProjectPrefix:
@@ -8,16 +8,11 @@ Parameters:
 
   GameNodeASG:
     Type: String
-    Description: AutoScalingGroupName for Game EKS nodes
 
-  NatGatewayId:
+  MatchingNodeASG:
     Type: String
-    Description: NAT Gateway ID (e.g. nat-xxxxxxxx)
 
 Resources:
-  ############################################################
-  # CloudWatch Dashboard
-  ############################################################
   InfraDashboard:
     Type: AWS::CloudWatch::Dashboard
     Properties:
@@ -34,21 +29,17 @@ Resources:
                   "width": 12,
                   "height": 6,
                   "properties": {
-                    "title": "EKS Node Group CPU (Game)",
+                    "title": "CPU Utilization - Game vs Matching",
                     "view": "timeSeries",
                     "region": "ap-northeast-2",
-                    "metrics": [
-                      [
-                        "AWS/EC2",
-                        "CPUUtilization",
-                        "AutoScalingGroupName",
-                        "${GameASG}",
-                        {
-                          "stat": "Average",
-                          "period": 300,
-                          "label": "Game Node CPU Avg"
-                        }
+                    "annotations": {
+                      "horizontal": [
+                        { "label": "Warning (50%)", "value": 50 }
                       ]
+                    },
+                    "metrics": [
+                      [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${GameASG}", { "label": "Game CPU", "stat": "Average" } ],
+                      [ ".", ".", ".", "${MatchingASG}", { "label": "Matching CPU", "stat": "Average" } ]
                     ]
                   }
                 },
@@ -59,30 +50,85 @@ Resources:
                   "width": 12,
                   "height": 6,
                   "properties": {
-                    "title": "NAT Gateway Outbound Traffic",
+                    "title": "ASG Desired vs InService",
                     "view": "timeSeries",
                     "region": "ap-northeast-2",
                     "metrics": [
-                      [
-                        "AWS/NATGateway",
-                        "BytesOutToDestination",
-                        "NatGatewayId",
-                        "${NatId}",
-                        {
-                          "stat": "Sum",
-                          "period": 300,
-                          "label": "Outbound Bytes"
-                        }
-                      ]
+                      [ "AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", "${GameASG}", { "label": "Game Desired" } ],
+                      [ ".", "GroupInServiceInstances", ".", ".", { "label": "Game InService" } ],
+                      [ ".", "GroupDesiredCapacity", ".", "${MatchingASG}", { "label": "Matching Desired" } ],
+                      [ ".", "GroupInServiceInstances", ".", ".", { "label": "Matching InService" } ]
+                    ]
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 6,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "Network Traffic (Game Nodes)",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [ "AWS/EC2", "NetworkIn", "AutoScalingGroupName", "${GameASG}", { "label": "In", "stat": "Sum" } ],
+                      [ ".", "NetworkOut", ".", ".", { "label": "Out", "stat": "Sum" } ]
+                    ]
+                  }
+                },
+
+                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 6,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "Network Traffic (Matching Nodes)",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [ "AWS/EC2", "NetworkIn", "AutoScalingGroupName", "${MatchingASG}", { "label": "In", "stat": "Sum" } ],
+                      [ ".", "NetworkOut", ".", ".", { "label": "Out", "stat": "Sum" } ]
+                    ]
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 12,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "EC2 Status Check Failed",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [ "AWS/EC2", "StatusCheckFailed", "AutoScalingGroupName", "${GameASG}", { "label": "Game Nodes", "stat": "Maximum" } ],
+                      [ ".", ".", ".", "${MatchingASG}", { "label": "Matching Nodes", "stat": "Maximum" } ]
+                    ]
+                  }
+                },
+                                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 12,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "ASG Scaling Activity (Pending / Terminating)",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [ "AWS/AutoScaling", "GroupPendingInstances", "AutoScalingGroupName", "${GameASG}", { "label": "Game Pending" } ],
+                      [ ".", "GroupTerminatingInstances", ".", ".", { "label": "Game Terminating" } ],
+                      [ ".", "GroupPendingInstances", ".", "${MatchingASG}", { "label": "Matching Pending" } ],
+                      [ ".", "GroupTerminatingInstances", ".", ".", { "label": "Matching Terminating" } ]
                     ]
                   }
                 }
               ]
             }
           - GameASG: !Ref GameNodeASG
-            NatId: !Ref NatGatewayId
-
-Outputs:
-  DashboardName:
-    Description: Infra CloudWatch Dashboard
-    Value: !Ref InfraDashboard
+            MatchingASG: !Ref MatchingNodeASG
