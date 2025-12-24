@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: T3-Wagu Production RDS MySQL Stack with Secrets Manager
+Description: T3-Wagu Production RDS MySQL Stack
 
 Parameters:
   DBName:
@@ -15,15 +15,9 @@ Parameters:
     Type: String
     Default: wagu_admin
     AllowedPattern: "[a-zA-Z0-9_]+"
-  
-  # ❌ [삭제됨] MasterPassword는 이제 AWS가 알아서 만드니까 필요 없습니다!
-  # MasterPassword: 
-  #   Type: String
-  #   NoEcho: true
-  #   MinLength: 12
 
 Resources:
-  # [1. 보안 그룹] (기존 동일)
+  # [1. Security Group]
   WaguProdDBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -36,7 +30,7 @@ Resources:
           CidrIp: 10.0.0.0/16 
           Description: "Allow MySQL Access from VPC"
 
-  # [2. 서브넷 그룹] (기존 동일)
+  # [2. Subnet Group]
   WaguProdDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -45,7 +39,7 @@ Resources:
         - ","
         - !ImportValue T3-Wagu-Matching-Private-Db-Subnet-Ids
 
-  # [3. 파라미터 그룹] (기존 동일 - 한글 지원)
+  # [3. Parameter Group] utf8mb4 support
   WaguProdDBParameterGroup:
     Type: AWS::RDS::DBParameterGroup
     Properties:
@@ -59,7 +53,7 @@ Resources:
         collation_server: "utf8mb4_unicode_ci"
         time_zone: "Asia/Seoul"
 
-  # [4. DB 인스턴스]
+  # [4. DB Instance]
   WaguProdDBInstance:
     Type: AWS::RDS::DBInstance
     DeletionPolicy: Snapshot
@@ -71,16 +65,12 @@ Resources:
       DBName: !Ref DBName
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: !Ref AllocatedStorage
-      StorageType: gp2
+      StorageType: gp3
       StorageEncrypted: true
       
       MasterUsername: !Ref MasterUsername
-      # ❌ [삭제됨] MasterUserPassword: !Ref MasterPassword
-      
-      # ✅ [새로 추가됨] 이 한 줄이 핵심입니다!
-      # AWS가 Secrets Manager에 비밀번호를 만들고 자동으로 연동합니다.
+      # Managed by AWS Secrets Manager
       ManageMasterUserPassword: true 
-      # (옵션) 사용할 KMS 키가 있다면 MasterUserSecretKmsKeyId 지정 가능 (생략 시 기본 키 사용)
 
       PubliclyAccessible: false
       MultiAZ: true
@@ -112,7 +102,6 @@ Outputs:
     Description: Production RDS Port
     Value: !GetAtt WaguProdDBInstance.Endpoint.Port
 
-  # ✅ [새로 추가됨] 생성된 시크릿의 ARN(주소)을 내보내서 앱에서 쓸 수 있게 함
   ProdDBSecretArn:
     Description: The ARN of the Secrets Manager secret storing the DB credentials
     Value: !GetAtt WaguProdDBInstance.MasterUserSecret.SecretArn
