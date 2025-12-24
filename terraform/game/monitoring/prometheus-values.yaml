@@ -5,7 +5,7 @@ server:
     type: LoadBalancer
     port: 9090
     annotations:
-      service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+      service.k8s.aws/load-balancer-scheme: internet-facing
 
 alertmanager:
   enabled: false
