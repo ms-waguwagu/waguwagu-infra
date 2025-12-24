@@ -132,3 +132,112 @@ Resources:
             }
           - GameASG: !Ref GameNodeASG
             MatchingASG: !Ref MatchingNodeASG
+
+  ############################################################
+  # Alarm
+  ############################################################
+
+  AlarmSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectPrefix}-infra-alarms"
+
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlarmSNSTopic
+      Protocol: email
+      Endpoint: xyukyeong@naver.com
+
+  GameNodeCPUHighAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-GameNode-CPU-High"
+      AlarmDescription: "Game Node ASG CPU >= 50% for 5 minutes"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref GameNodeASG
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 50
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+      OKActions:
+        - !Ref AlarmSNSTopic
+
+  MatchingNodeCPUHighAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-MatchingNode-CPU-High"
+      AlarmDescription: "Matching Node ASG CPU >= 50% for 5 minutes"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref MatchingNodeASG
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 50
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+      OKActions:
+        - !Ref AlarmSNSTopic
+
+  EC2StatusCheckFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-EC2-StatusCheck-Failed"
+      AlarmDescription: "Any EC2 node status check failed"
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  ASGInServiceLowAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-ASG-InService-Low"
+      AlarmDescription: "ASG InService instances dropped"
+      Namespace: AWS/AutoScaling
+      MetricName: GroupInServiceInstances
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref GameNodeASG
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  ASGPendingTooLongAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectPrefix}-ASG-Pending-Too-Long"
+      Namespace: AWS/AutoScaling
+      MetricName: GroupPendingInstances
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref GameNodeASG
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlarmSNSTopic
