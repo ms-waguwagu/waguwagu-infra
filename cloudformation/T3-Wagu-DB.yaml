@@ -7,7 +7,7 @@ Parameters:
     Default: wagudb
   DBInstanceClass:
     Type: String
-    Default: db.m5.large
+    Default: db.t3.medium
   AllocatedStorage:
     Type: Number
     Default: 50
@@ -61,11 +61,10 @@ Resources:
     Properties:
       DBInstanceIdentifier: t3-wagu-prod-db
       Engine: mysql
-      EngineVersion: "8.0.34"
       DBName: !Ref DBName
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: !Ref AllocatedStorage
-      StorageType: gp3
+      StorageType: gp2
       StorageEncrypted: true
       
       MasterUsername: !Ref MasterUsername
