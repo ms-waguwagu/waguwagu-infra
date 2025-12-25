@@ -7,7 +7,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/ms-waguwagu/waguwagu-server
+    repoURL: https://github.com/ms-waguwagu/waguwagu-infra #waguwagu-server를 waguwagu-infra로 바꿔봄
     targetRevision: main
     path: k8s/agones
 
@@ -15,8 +15,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: game
 
-  syncPolicy: {}
+  syncPolicy:
+    {}
     # automated:
     #   prune: true
     #   selfHeal: true
-

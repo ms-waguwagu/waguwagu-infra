@@ -38,7 +38,8 @@ Parameters:
   #  frontend/Jenkinsfileï¿½ï¿½ S3_BUCKET ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ø¾ï¿½ ï¿½ï¿½
   FrontendBucketName:
     Type: String
-    Default: waguwagu-s3-bucket-061039804626-ap-northeast-2
+    #Default: waguwagu-s3-bucket-061039804626-ap-northeast-2 ³» °èÁ¤À¸·Î µ¹¸±¶ó°í Àá±ñ ÁÖ¼®Ã³¸®
+    Default: waguwagu-s3-bucket-269397878198-ap-northeast-2
 
   ############################################################
   # CloudFront Distribution IDï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½ Secrets Manager Secret ï¿½ï¿½ï¿½ï¿½
@@ -339,10 +340,13 @@ Resources:
             --query SecretString \
             --output text \
             --region ${AWS::Region} | jq -r '.${GitHubPatSecretKey}')"
-          install -d -m 700 /var/lib/jenkins/secret-files
-          echo -n "$PAT" > /var/lib/jenkins/secret-files/github_pat
+
+          # ? (ÆĞÄ¡) µğ·ºÅä¸®¸¦ jenkins ¼ÒÀ¯/±ÇÇÑÀ¸·Î "Ã³À½ºÎÅÍ" »ı¼º (ÀçºÎÆÃ/Àç»ı¼º¿¡µµ ¿µ±¸ÀûÀ¸·Î µ¿ÀÏ)
+          install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files
+          printf '%s' "$PAT" > /var/lib/jenkins/secret-files/github_pat
           chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat
           chmod 600 /var/lib/jenkins/secret-files/github_pat
+
           unset PAT
           set -x
 
@@ -585,10 +589,13 @@ Resources:
             --query SecretString \
             --output text \
             --region ${AWS::Region} | jq -r '.${GitHubPatSecretKey}')"
-          install -d -m 700 /var/lib/jenkins/secret-files
-          echo -n "$PAT" > /var/lib/jenkins/secret-files/github_pat
+
+          # ? (ÆĞÄ¡) µğ·ºÅä¸®¸¦ jenkins ¼ÒÀ¯/±ÇÇÑÀ¸·Î "Ã³À½ºÎÅÍ" »ı¼º (ÀçºÎÆÃ/Àç»ı¼º¿¡µµ ¿µ±¸ÀûÀ¸·Î µ¿ÀÏ)
+          install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files
+          printf '%s' "$PAT" > /var/lib/jenkins/secret-files/github_pat
           chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat
           chmod 600 /var/lib/jenkins/secret-files/github_pat
+
           unset PAT
           set -x
 
