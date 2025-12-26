@@ -56,8 +56,8 @@ Resources:
   # [4. DB Instance]
   WaguProdDBInstance:
     Type: AWS::RDS::DBInstance
-    DeletionPolicy: Snapshot
-    UpdateReplacePolicy: Snapshot
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
     Properties:
       DBInstanceIdentifier: t3-wagu-prod-db
       Engine: mysql
