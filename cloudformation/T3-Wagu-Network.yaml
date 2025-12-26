@@ -1,728 +1,535 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Jenkins Server for WAGUWAGU (Matching/Game ë¶„ë¦¬)
+Description: WAGUWAGU Matching + Game VPC
 
 Parameters:
   ProjectPrefix:
     Type: String
     Default: T3-Wagu
 
-  InstanceType:
-    Type: String
-    Default: t3.medium
-    AllowedValues:
-      - t3.medium
-      - t3.large
-      - t3.xlarge
+  AzA:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-northeast-2a
 
-  LatestAmiId:
-    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
-    Default: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
-    Description: Latest Amazon Linux 2023 AMI ID from SSM Parameter Store
+  AzC:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: ap-northeast-2c
 
-  JenkinsAdminUser:
+  MatchingVPCCidr:
     Type: String
-    Default: admin
+    Default: 10.0.0.0/16
+    Description: CIDR block of T3-Wagu-Matching-VPC
 
-  JenkinsAdminPassword:
+  GameVPCCidr:
     Type: String
-    NoEcho: true
-
-  # (?„ ?ƒ) Jenkins URL ?„¤? •
-  # ë¹„ì›Œ?‘ë©? Jenkins Location URL??? ?”°ë¡? ?„¤? •?•˜ì§? ?•Š?Œ
-  JenkinsBaseUrl:
-    Type: String
-    Default: ""
-    Description: "Optional. Example: http://your-domain-or-ip:8080 (leave blank if not used)"
-
-  #  Frontend S3 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Å¶ï¿½ï¿½ (IAM ï¿½ï¿½Ã¥ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿?)
-  #  frontend/Jenkinsfileï¿½ï¿½ S3_BUCKET ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ø¾ï¿½ ï¿½ï¿½
-  FrontendBucketName:
-    Type: String
-    #Default: waguwagu-s3-bucket-061039804626-ap-northeast-2 ³» °èÁ¤À¸·Î µ¹¸±¶ó°í Àá±ñ ÁÖ¼®Ã³¸®
-    Default: waguwagu-s3-bucket-269397878198-ap-northeast-2
-
-  ############################################################
-  # CloudFront Distribution IDï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½ Secrets Manager Secret ï¿½ï¿½ï¿½ï¿½
-  # - Jenkinsfileï¿½ï¿½ï¿½ï¿½ aws secretsmanager get-secret-value ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-  # - SecretString(JSON) ï¿½È¿ï¿½ ï¿½Æ·ï¿½ Keyï¿½ï¿½ Distribution IDï¿½ï¿½ ï¿½Ö¾ï¿½ï¿½Ö¸ï¿½ ï¿½ï¿½
-  ############################################################
-  CloudFrontSecretName:
-    Type: String
-    Default: "T3-Wagu-Secrets"
-    Description: "Secrets Manager secret name that contains CloudFront Distribution ID"
-
-  CloudFrontSecretKey:
-    Type: String
-    Default: "CLOUDFRONT_DISTRIBUTION_ID"
-    Description: "Key inside SecretString JSON for CloudFront Distribution ID"
-
-  ############################################################
-  # GitHub PAT (Secrets Manager) - Jenkins°¡ waguwagu-infra¿¡ pushÇÒ ¶§ »ç¿ë
-  # - SecretString(JSON) ¾È¿¡ Key·Î GITHUB_PAT ¸¦ ³Ö´Â ÀüÁ¦
-  # - ±âÁ¸ Secret(T3-Wagu-Secrets) Àç»ç¿ë
-  ############################################################
-  GitHubPatSecretName:
-    Type: String
-    Default: "T3-Wagu-Secrets"
-
-  GitHubPatSecretKey:
-    Type: String
-    Default: "GITHUB_PAT"
+    Default: 10.1.0.0/16
+    Description: CIDR block of T3-Wagu-Game-VPC
 
 Resources:
   ############################################################
-  # IAM Role for Jenkins EC2
-  # -SSM ? ‘?†(?„¸?…˜ ë§¤ë‹ˆ???)
-  # -ECR push/pull
-  # - (?„ ?ƒ) EKS ? ‘ê·?/ë°°í¬( CD ?™•?ž¥ ?‹œ?—)
+  # Matching VPC
   ############################################################
-  JenkinsRole:
-    Type: AWS::IAM::Role
+  MatchingVPC:
+    Type: AWS::EC2::VPC
     Properties:
-      RoleName: !Sub "${ProjectPrefix}-Jenkins-Role"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
-        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
-        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
-        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-      Policies:
-        - PolicyName: JenkinsECRPolicy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ecr:GetAuthorizationToken
-                  - ecr:BatchCheckLayerAvailability
-                  - ecr:GetDownloadUrlForLayer
-                  - ecr:GetRepositoryPolicy
-                  - ecr:DescribeRepositories
-                  - ecr:ListImages
-                  - ecr:DescribeImages
-                  - ecr:BatchGetImage
-                  - ecr:InitiateLayerUpload
-                  - ecr:UploadLayerPart
-                  - ecr:CompleteLayerUpload
-                  - ecr:PutImage
-                Resource: "*"
-
-        # Frontend ï¿½ï¿½ï¿½ï¿½(S3 sync) ï¿½ï¿½ï¿½ï¿½ ï¿½ß°ï¿½
-        - PolicyName: JenkinsFrontendS3Policy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:ListBucket
-                  - s3:GetBucketLocation
-                Resource: !Sub "arn:aws:s3:::${FrontendBucketName}"
-
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
-                  - s3:DeleteObject
-                Resource: !Sub "arn:aws:s3:::${FrontendBucketName}/*"
-
-        ############################################################
-        #  CloudFront Ä³ï¿½ï¿½ ï¿½ï¿½È¿È­(Invalidation) + Secrets Managerï¿½ï¿½ï¿½ï¿½ Distribution ID ï¿½Ð±ï¿½
-        ############################################################
-        - PolicyName: JenkinsCloudFrontInvalidationPolicy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                  - secretsmanager:DescribeSecret
-                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${CloudFrontSecretName}-*"
-
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                  - secretsmanager:DescribeSecret
-                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${GitHubPatSecretName}-*"
-
-              - Effect: Allow
-                Action:
-                  - cloudfront:CreateInvalidation
-                  - cloudfront:GetDistribution
-                Resource: "*"
-
-  JenkinsInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles:
-        - !Ref JenkinsRole
-      InstanceProfileName: !Sub "${ProjectPrefix}-Jenkins-Instance-Profile"
-
-  ############################################################
-  # Security Group (Matching Jenkins)
-  ############################################################
-  JenkinsMatchingSG:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security Group for Jenkins Matching Server (SSM + optional GitHub Webhook 8080)
-      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
-
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
-          CidrIp: 140.82.112.0/20
-
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
-          CidrIp: 192.30.252.0/22
-
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-
+      CidrBlock: !Ref MatchingVPCCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
-        - Key: Project
-          Value: WAGUWAGU
+          Value: !Sub "${ProjectPrefix}-Matching-VPC"
 
   ############################################################
-  # Security Group (Game Jenkins)
+  # Matching Internet Gateway
   ############################################################
-  JenkinsGameSG:
-    Type: AWS::EC2::SecurityGroup
+  MatchingIGW:
+    Type: AWS::EC2::InternetGateway
     Properties:
-      GroupDescription: Security Group for Jenkins Game Server (SSM-only, no inbound)
-      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
-      SecurityGroupIngress: []
-
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
-        - Key: Project
-          Value: WAGUWAGU
+          Value: !Sub "${ProjectPrefix}-Matching-IGW"
 
-  ############################################################
-  # Jenkins EC2 Instance (Matching)
-  ############################################################
-  JenkinsInstanceMatching:
-    Type: AWS::EC2::Instance
+  MatchingIGWAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      InstanceType: !Ref InstanceType
-      ImageId: !Ref LatestAmiId
-      IamInstanceProfile: !Ref JenkinsInstanceProfile
+      VpcId: !Ref MatchingVPC
+      InternetGatewayId: !Ref MatchingIGW
 
-      NetworkInterfaces:
-        - AssociatePublicIpAddress: true
-          DeviceIndex: "0"
-          GroupSet:
-            - !Ref JenkinsMatchingSG
-          SubnetId: !Select
-            - 0
-            - !Split
-              - ","
-              - !ImportValue T3-Wagu-Matching-Public-Subnet-Ids
-
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          set -euxo pipefail
-
-          exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
-
-          dnf update -y
-
-          dnf install -y docker git wget unzip jq awscli
-          systemctl enable --now docker
-
-          KVER="$(wget -qO- https://dl.k8s.io/release/stable.txt)"
-          wget -q "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -O /usr/local/bin/kubectl
-          chmod +x /usr/local/bin/kubectl
-
-          dnf install -y java-17-amazon-corretto
-
-          wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-          rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
-
-          dnf clean all
-          dnf makecache -y
-          dnf install -y jenkins
-
-          #  (Áß¿ä) ¼³Ä¡ °úÁ¤¿¡¼­ Jenkins°¡ ÀÚµ¿ ±âµ¿µÇ´Â °æ¿ì°¡ ÀÖ¾î, ¿©±â¼­ ¸ÕÀú È®½ÇÈ÷ ³»·ÁµÒ
-          systemctl disable --now jenkins || true
-
-          usermod -aG docker jenkins
-
-          mkdir -p /var/lib/jenkins/plugins
-          cat >/tmp/plugins.txt <<'EOF'
-          workflow-aggregator
-          git
-          github
-          github-branch-source
-          credentials-binding
-          plain-credentials
-          pipeline-stage-view
-          EOF
-
-          export JENKINS_HOME=/var/lib/jenkins
-
-          if command -v jenkins-plugin-cli >/dev/null 2>&1; then
-            PLUGINS="$(tr '\n' ' ' </tmp/plugins.txt)"
-            jenkins-plugin-cli --plugins "$PLUGINS" --plugin-dir /var/lib/jenkins/plugins
-          else
-            PIM_VER="2.13.2"
-            wget -q -O /tmp/jenkins-plugin-manager.jar \
-              "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/$PIM_VER/jenkins-plugin-manager-$PIM_VER.jar"
-            java -jar /tmp/jenkins-plugin-manager.jar \
-              --war /usr/share/java/jenkins.war \
-              --plugin-file /tmp/plugins.txt \
-              --plugin-download-directory /var/lib/jenkins/plugins
-          fi
-
-          chown -R jenkins:jenkins /var/lib/jenkins
-
-          mkdir -p /etc/sysconfig
-          if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
-            sed -i 's#^JENKINS_JAVA_OPTIONS="\\(.*\\)"#JENKINS_JAVA_OPTIONS="\\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
-          else
-            echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
-          fi
-
-          systemctl daemon-reload
-
-          #   secret-files µð·ºÅä¸®´Â ¹Ýµå½Ã jenkins ¼ÒÀ¯·Î »ý¼ºÇØ¾ß ÇÔ (root:root 700 ÀÌ¸é Jenkins°¡ ¸ø ÀÐÀ½)
-          # GitHub PAT¸¦ Secrets Manager¿¡¼­ ÀÐ¾î¼­ ÆÄÀÏ·Î ÀúÀå (·Î±× ³ëÃâ ¹æÁö)
-          set +x
-          PAT="$(aws secretsmanager get-secret-value \
-            --secret-id ${GitHubPatSecretName} \
-            --query SecretString \
-            --output text \
-            --region ${AWS::Region} | jq -r '.${GitHubPatSecretKey}')"
-
-          install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files
-          echo -n "$PAT" > /var/lib/jenkins/secret-files/github_pat
-          chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat
-          chmod 600 /var/lib/jenkins/secret-files/github_pat
-          unset PAT
-          set -x
-
-          #  (Ãß°¡ ¾ÈÀüÀåÄ¡) Jenkins°¡ Àç½ÃÀÛµÉ ¶§¸¶´Ù ±ÇÇÑÀ» °­Á¦·Î °íÁ¤
-          mkdir -p /etc/systemd/system/jenkins.service.d
-          cat >/etc/systemd/system/jenkins.service.d/override.conf <<'EOF'
-          [Service]
-          ExecStartPre=/bin/bash -lc 'install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files'
-          ExecStartPre=/bin/bash -lc 'chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat 2>/dev/null || true'
-          ExecStartPre=/bin/bash -lc 'chmod 600 /var/lib/jenkins/secret-files/github_pat 2>/dev/null || true'
-          EOF
-
-          systemctl daemon-reload
-
-          mkdir -p /var/lib/jenkins/init.groovy.d
-          cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
-          import jenkins.model.*
-          import hudson.security.*
-          import jenkins.model.JenkinsLocationConfiguration
-
-          def instance = Jenkins.get()
-
-          def adminUser = "${JenkinsAdminUser}"
-          def adminPass = "${JenkinsAdminPassword}"
-
-          def realm = new HudsonPrivateSecurityRealm(false)
-          if (realm.getUser(adminUser) == null) {
-            realm.createAccount(adminUser, adminPass)
-          }
-          instance.setSecurityRealm(realm)
-
-          def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
-          strategy.setAllowAnonymousRead(false)
-          instance.setAuthorizationStrategy(strategy)
-
-          def baseUrl = "${JenkinsBaseUrl}"
-          if (baseUrl != null && baseUrl.trim().length() > 0) {
-            def loc = JenkinsLocationConfiguration.get()
-            loc.setUrl(baseUrl.trim())
-            loc.save()
-          }
-
-          instance.save()
-          GROOVY
-
-          cat >/var/lib/jenkins/init.groovy.d/03-credentials.groovy <<'GROOVY'
-          import jenkins.model.*
-          import com.cloudbees.plugins.credentials.*
-          import com.cloudbees.plugins.credentials.domains.*
-          import com.cloudbees.plugins.credentials.common.StandardCredentials
-          import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl
-          import hudson.util.Secret
-
-          def id = "github-pat-infra-push"
-          def desc = "GitHub PAT for pushing waguwagu-infra manifests"
-          def f = new File("/var/lib/jenkins/secret-files/github_pat")
-
-          if (!f.exists()) {
-            println("[WARN] github_pat file not found. Skip creating credential.")
-            return
-          }
-
-          def pat = f.text.trim()
-          if (pat == null || pat.length() == 0) {
-            println("[WARN] github_pat is empty. Skip creating credential.")
-            return
-          }
-
-          def j = Jenkins.get()
-          def provider = j.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0]
-          def store = provider.getStore()
-          def domain = Domain.global()
-
-          def existing = com.cloudbees.plugins.credentials.CredentialsProvider.lookupCredentials(
-            StandardCredentials.class, j, null, null
-          ).find { it.id == id }
-
-          if (existing != null) {
-            store.removeCredentials(domain, existing)
-          }
-
-          def c = new StringCredentialsImpl(CredentialsScope.GLOBAL, id, desc, Secret.fromString(pat))
-          store.addCredentials(domain, c)
-          println("[OK] Created/Updated credential: " + id)
-          GROOVY
-
-          cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
-          import jenkins.model.*
-          import org.jenkinsci.plugins.workflow.job.WorkflowJob
-          import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
-          import hudson.plugins.git.*
-          import hudson.triggers.SCMTrigger
-
-          def j = Jenkins.get()
-
-          def repoUrl = "https://github.com/ms-waguwagu/waguwagu-server.git"
-          def branchSpec = "*/main"
-
-          def ensurePipelineJob = { String jobName, String scriptPath ->
-            def existing = j.getItem(jobName)
-            if (existing != null) {
-              println("[OK] Job already exists: " + jobName)
-              return
-            }
-
-            println("[CREATE] Job: " + jobName)
-
-            WorkflowJob job = j.createProject(WorkflowJob, jobName)
-
-            def remote = new UserRemoteConfig(repoUrl, null, null, null)
-            def scm = new GitSCM(
-              [remote],
-              [new BranchSpec(branchSpec)],
-              false,
-              [],
-              null,
-              null,
-              []
-            )
-
-            job.definition = new CpsScmFlowDefinition(scm, scriptPath)
-
-            job.addTrigger(new SCMTrigger("H/2 * * * *"))
-
-            job.save()
-          }
-
-          ensurePipelineJob("matching-ci", "matching-server/Jenkinsfile")
-          ensurePipelineJob("frontend-ci", "frontend/Jenkinsfile")
-          j.save()
-          GROOVY
-
-          chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
-
-          systemctl enable jenkins
-          systemctl start jenkins
-          systemctl status jenkins --no-pager || true
-          ss -lntp | grep 8080 || true
-          wget -qS --spider http://localhost:8080/login || true
-
+  ############################################################
+  # Matching Public Subnets
+  ############################################################
+  MatchingPublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.10.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Matching"
-        - Key: Project
-          Value: WAGUWAGU
+          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-A"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Matching-EKS"
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
 
-  ############################################################
-  # Jenkins EC2 Instance (Game)
-  ############################################################
-  JenkinsInstanceGame:
-    Type: AWS::EC2::Instance
+  MatchingPublicSubnetB:
+    Type: AWS::EC2::Subnet
     Properties:
-      InstanceType: !Ref InstanceType
-      ImageId: !Ref LatestAmiId
-      IamInstanceProfile: !Ref JenkinsInstanceProfile
-
-      NetworkInterfaces:
-        - AssociatePublicIpAddress: true
-          DeviceIndex: "0"
-          GroupSet:
-            - !Ref JenkinsGameSG
-          SubnetId: !Select
-            - 0
-            - !Split
-              - ","
-              - !ImportValue T3-Wagu-Game-Public-Subnet-Ids
-
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          set -euxo pipefail
-
-          exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
-
-          dnf update -y
-
-          dnf install -y docker git wget unzip jq awscli
-          systemctl enable --now docker
-
-          KVER="$(wget -qO- https://dl.k8s.io/release/stable.txt)"
-          wget -q "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -O /usr/local/bin/kubectl
-          chmod +x /usr/local/bin/kubectl
-
-          dnf install -y java-17-amazon-corretto
-
-          wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-          rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
-
-          dnf clean all
-          dnf makecache -y
-          dnf install -y jenkins
-
-          #  (Áß¿ä) ÀÚµ¿ ±âµ¿ ¹æÁö
-          systemctl disable --now jenkins || true
-
-          usermod -aG docker jenkins
-
-          mkdir -p /var/lib/jenkins/plugins
-          cat >/tmp/plugins.txt <<'EOF'
-          workflow-aggregator
-          git
-          github
-          github-branch-source
-          credentials-binding
-          plain-credentials
-          pipeline-stage-view
-          EOF
-
-          export JENKINS_HOME=/var/lib/jenkins
-
-          if command -v jenkins-plugin-cli >/dev/null 2>&1; then
-            PLUGINS="$(tr '\n' ' ' </tmp/plugins.txt)"
-            jenkins-plugin-cli --plugins "$PLUGINS" --plugin-dir /var/lib/jenkins/plugins
-          else
-            PIM_VER="2.13.2"
-            wget -q -O /tmp/jenkins-plugin-manager.jar \
-              "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/$PIM_VER/jenkins-plugin-manager-$PIM_VER.jar"
-            java -jar /tmp/jenkins-plugin-manager.jar \
-              --war /usr/share/java/jenkins.war \
-              --plugin-file /tmp/plugins.txt \
-              --plugin-download-directory /var/lib/jenkins/plugins
-          fi
-
-          chown -R jenkins:jenkins /var/lib/jenkins
-
-          mkdir -p /etc/sysconfig
-          if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
-            sed -i 's#^JENKINS_JAVA_OPTIONS="\\(.*\\)"#JENKINS_JAVA_OPTIONS="\\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
-          else
-            echo 'JENKINS_JAVA_OPTIONS="-Djenkins.install.runSetupWizard=false"' >> /etc/sysconfig/jenkins
-          fi
-
-          systemctl daemon-reload
-
-          #  secret-files: jenkins ¼ÒÀ¯·Î »ý¼º
-          set +x
-          PAT="$(aws secretsmanager get-secret-value \
-            --secret-id ${GitHubPatSecretName} \
-            --query SecretString \
-            --output text \
-            --region ${AWS::Region} | jq -r '.${GitHubPatSecretKey}')"
-
-          install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files
-          echo -n "$PAT" > /var/lib/jenkins/secret-files/github_pat
-          chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat
-          chmod 600 /var/lib/jenkins/secret-files/github_pat
-          unset PAT
-          set -x
-
-          #  Àç½ÃÀÛ ½Ã ±ÇÇÑ °íÁ¤
-          mkdir -p /etc/systemd/system/jenkins.service.d
-          cat >/etc/systemd/system/jenkins.service.d/override.conf <<'EOF'
-          [Service]
-          ExecStartPre=/bin/bash -lc 'install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files'
-          ExecStartPre=/bin/bash -lc 'chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat 2>/dev/null || true'
-          ExecStartPre=/bin/bash -lc 'chmod 600 /var/lib/jenkins/secret-files/github_pat 2>/dev/null || true'
-          EOF
-
-          systemctl daemon-reload
-
-          mkdir -p /var/lib/jenkins/init.groovy.d
-          cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
-          import jenkins.model.*
-          import hudson.security.*
-          import jenkins.model.JenkinsLocationConfiguration
-
-          def instance = Jenkins.get()
-
-          def adminUser = "${JenkinsAdminUser}"
-          def adminPass = "${JenkinsAdminPassword}"
-
-          def realm = new HudsonPrivateSecurityRealm(false)
-          if (realm.getUser(adminUser) == null) {
-            realm.createAccount(adminUser, adminPass)
-          }
-          instance.setSecurityRealm(realm)
-
-          def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
-          strategy.setAllowAnonymousRead(false)
-          instance.setAuthorizationStrategy(strategy)
-
-          def baseUrl = "${JenkinsBaseUrl}"
-          if (baseUrl != null && baseUrl.trim().length() > 0) {
-            def loc = JenkinsLocationConfiguration.get()
-            loc.setUrl(baseUrl.trim())
-            loc.save()
-          }
-
-          instance.save()
-          GROOVY
-
-          cat >/var/lib/jenkins/init.groovy.d/03-credentials.groovy <<'GROOVY'
-          import jenkins.model.*
-          import com.cloudbees.plugins.credentials.*
-          import com.cloudbees.plugins.credentials.domains.*
-          import com.cloudbees.plugins.credentials.common.StandardCredentials
-          import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl
-          import hudson.util.Secret
-
-          def id = "github-pat-infra-push"
-          def desc = "GitHub PAT for pushing waguwagu-infra manifests"
-          def f = new File("/var/lib/jenkins/secret-files/github_pat")
-
-          if (!f.exists()) {
-            println("[WARN] github_pat file not found. Skip creating credential.")
-            return
-          }
-
-          def pat = f.text.trim()
-          if (pat == null || pat.length() == 0) {
-            println("[WARN] github_pat is empty. Skip creating credential.")
-            return
-          }
-
-          def j = Jenkins.get()
-          def provider = j.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0]
-          def store = provider.getStore()
-          def domain = Domain.global()
-
-          def existing = com.cloudbees.plugins.credentials.CredentialsProvider.lookupCredentials(
-            StandardCredentials.class, j, null, null
-          ).find { it.id == id }
-
-          if (existing != null) {
-            store.removeCredentials(domain, existing)
-          }
-
-          def c = new StringCredentialsImpl(CredentialsScope.GLOBAL, id, desc, Secret.fromString(pat))
-          store.addCredentials(domain, c)
-          println("[OK] Created/Updated credential: " + id)
-          GROOVY
-
-          cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
-          import jenkins.model.*
-          import org.jenkinsci.plugins.workflow.job.WorkflowJob
-          import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
-          import hudson.plugins.git.*
-          import hudson.triggers.SCMTrigger
-
-          def j = Jenkins.get()
-
-          def repoUrl = "https://github.com/ms-waguwagu/waguwagu-server.git"
-          def branchSpec = "*/main"
-
-          def ensurePipelineJob = { String jobName, String scriptPath ->
-            def existing = j.getItem(jobName)
-            if (existing != null) {
-              println("[OK] Job already exists: " + jobName)
-              return
-            }
-
-            println("[CREATE] Job: " + jobName)
-
-            WorkflowJob job = j.createProject(WorkflowJob, jobName)
-
-            def remote = new UserRemoteConfig(repoUrl, null, null, null)
-            def scm = new GitSCM(
-              [remote],
-              [new BranchSpec(branchSpec)],
-              false,
-              [],
-              null,
-              null,
-              []
-            )
-
-            job.definition = new CpsScmFlowDefinition(scm, scriptPath)
-
-            job.addTrigger(new SCMTrigger("H/2 * * * *"))
-
-            job.save()
-          }
-
-          ensurePipelineJob("game-ci", "game-server/Jenkinsfile")
-          j.save()
-          GROOVY
-
-          chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
-
-          systemctl enable jenkins
-          systemctl start jenkins
-          systemctl status jenkins --no-pager || true
-          ss -lntp | grep 8080 || true
-          wget -qS --spider http://localhost:8080/login || true
-
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Game"
-        - Key: Project
-          Value: WAGUWAGU
+          Value: !Sub "${ProjectPrefix}-Matching-Public-Subnet-B"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Matching-EKS"
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  ############################################################
+  # Matching Private Subnets
+  ############################################################
+  MatchingPrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.20.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-A"
+
+  MatchingPrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.21.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-B"
+
+  ############################################################
+  # Matching Private DB Subnets
+  ############################################################
+  MatchingPrivateDbSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.30.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-A"
+
+  MatchingPrivateDbSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MatchingVPC
+      CidrBlock: 10.0.31.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-DB-Subnet-B"
+
+  ############################################################
+  # Matching Route Tables
+  ############################################################
+  MatchingPublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MatchingVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Public-RT"
+
+  MatchingPublicRouteToInternet:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingIGWAttach
+    Properties:
+      RouteTableId: !Ref MatchingPublicRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MatchingIGW
+
+  # Matching -> Game (Peering)
+  MatchingPublicRouteToGameVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref MatchingPublicRT
+      DestinationCidrBlock: !GetAtt GameVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
+  MatchingPublicAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPublicSubnetA
+      RouteTableId: !Ref MatchingPublicRT
+
+  MatchingPublicAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPublicSubnetB
+      RouteTableId: !Ref MatchingPublicRT
+
+  ############################################################
+  # Matching NAT Gateway (Single - Cost Optimized)
+  ############################################################
+  MatchingNatEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-NAT-EIP"
+
+  MatchingNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt MatchingNatEip.AllocationId
+      SubnetId: !Ref MatchingPublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-NAT-GW"
+
+  MatchingPrivateRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MatchingVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Private-RT"
+
+  MatchingPrivateRouteToInternet:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MatchingPrivateRT
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref MatchingNatGateway
+
+  MatchingPrivateSubnetAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateSubnetA
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateSubnetAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateSubnetB
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateDbSubnetAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateDbSubnetA
+      RouteTableId: !Ref MatchingPrivateRT
+
+  MatchingPrivateDbSubnetAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MatchingPrivateDbSubnetB
+      RouteTableId: !Ref MatchingPrivateRT
+
+  ############################################################
+  # Game VPC
+  ############################################################
+  GameVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref GameVPCCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-VPC"
+
+  ############################################################
+  # Game Internet Gateway
+  ############################################################
+  GameInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-IGW"
+
+  GameIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref GameVPC
+      InternetGatewayId: !Ref GameInternetGateway
+
+  ############################################################
+  # Game Public Subnets
+  ############################################################
+  GamePublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.10.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Public-Subnet-A"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game-EKS"
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  GamePublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.11.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Public-Subnet-B"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game-EKS"
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  ############################################################
+  # Game Private Subnets
+  ############################################################
+  GamePrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.20.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-Subnet-A"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game-EKS"
+          Value: shared
+        - Key: kubernetes.io/role/internal-elb
+          Value: 1
+
+  GamePrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.21.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-Subnet-B"
+        - Key: !Sub "kubernetes.io/cluster/${ProjectPrefix}-Game-EKS"
+          Value: shared
+        - Key: kubernetes.io/role/internal-elb
+          Value: 1
+
+  ############################################################
+  # Game Private DB Subnets
+  ############################################################
+  GamePrivateDbSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.30.0/24
+      AvailabilityZone: !Ref AzA
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-DB-Subnet-A"
+
+  GamePrivateDbSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref GameVPC
+      CidrBlock: 10.1.31.0/24
+      AvailabilityZone: !Ref AzC
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-DB-Subnet-B"
+
+  ############################################################
+  # Game Public Route Table
+  ############################################################
+  GamePublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref GameVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Public-RT"
+
+  GamePublicRouteToInternet:
+    Type: AWS::EC2::Route
+    DependsOn: GameIGWAttachment
+    Properties:
+      RouteTableId: !Ref GamePublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref GameInternetGateway
+
+  # Game -> Matching (Peering)
+  GamePublicRouteToMatchingVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref GamePublicRouteTable
+      DestinationCidrBlock: !GetAtt MatchingVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
+  GamePublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePublicSubnetA
+      RouteTableId: !Ref GamePublicRouteTable
+
+  GamePublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePublicSubnetB
+      RouteTableId: !Ref GamePublicRouteTable
+
+  ############################################################
+  # Game NAT Gateway
+  ############################################################
+  GameNatEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-NAT-EIP"
+
+  GameNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt GameNatEIP.AllocationId
+      SubnetId: !Ref GamePublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-NAT-GW"
+
+  ############################################################
+  # Game Private Route Table
+  ############################################################
+  GamePrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref GameVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-Private-RT"
+
+  GamePrivateRouteToInternet:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref GamePrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref GameNatGateway
+
+  GamePrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePrivateSubnetA
+      RouteTableId: !Ref GamePrivateRouteTable
+
+  GamePrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePrivateSubnetB
+      RouteTableId: !Ref GamePrivateRouteTable
+
+  GamePrivateDbSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePrivateDbSubnetA
+      RouteTableId: !Ref GamePrivateRouteTable
+
+  GamePrivateDbSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GamePrivateDbSubnetB
+      RouteTableId: !Ref GamePrivateRouteTable
+
+  ############################################################
+  # VPC Peering Connection (Matching <-> Game)
+  ############################################################
+  MatchingToGamePeering:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: !Ref MatchingVPC
+      PeerVpcId: !Ref GameVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-Game-Peering"
+
+  # Private Route: Matching -> Game
+  MatchingPrivateRouteToGameVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref MatchingPrivateRT
+      DestinationCidrBlock: !GetAtt GameVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
+
+  # Private Route: Game -> Matching
+  GamePrivateRouteToMatchingVpc:
+    Type: AWS::EC2::Route
+    DependsOn: MatchingToGamePeering
+    Properties:
+      RouteTableId: !Ref GamePrivateRouteTable
+      DestinationCidrBlock: !GetAtt MatchingVPC.CidrBlock
+      VpcPeeringConnectionId: !Ref MatchingToGamePeering
 
 Outputs:
-  JenkinsInstanceMatchingId:
-    Value: !Ref JenkinsInstanceMatching
-    Description: Instance ID of the Jenkins Matching Server
+  MatchingVPCId:
+    Value: !Ref MatchingVPC
     Export:
-      Name: !Sub "${ProjectPrefix}-Jenkins-Matching-Instance-Id"
+      Name: !Sub "${ProjectPrefix}-Matching-VPC-Id"
 
-  JenkinsInstanceMatchingPublicIp:
-    Value: !GetAtt JenkinsInstanceMatching.PublicIp
-    Description: Public IP of the Jenkins Matching Server
-
-  JenkinsInstanceGameId:
-    Value: !Ref JenkinsInstanceGame
-    Description: Instance ID of the Jenkins Game Server
+  MatchingPublicSubnetIds:
+    Value: !Join [",", [!Ref MatchingPublicSubnetA, !Ref MatchingPublicSubnetB]]
     Export:
-      Name: !Sub "${ProjectPrefix}-Jenkins-Game-Instance-Id"
+      Name: !Sub "${ProjectPrefix}-Matching-Public-Subnet-Ids"
 
-  JenkinsInstanceGamePublicIp:
-    Value: !GetAtt JenkinsInstanceGame.PublicIp
-    Description: Public IP of the Jenkins Game Server
+  MatchingPrivateSubnetIds:
+    Value:
+      !Join [",", [!Ref MatchingPrivateSubnetA, !Ref MatchingPrivateSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-Private-Subnet-Ids"
+
+  MatchingPrivateDbSubnetIds:
+    Value:
+      !Join [
+        ",",
+        [!Ref MatchingPrivateDbSubnetA, !Ref MatchingPrivateDbSubnetB],
+      ]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-Private-Db-Subnet-Ids"
+
+  GameVPCId:
+    Value: !Ref GameVPC
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-VPC-Id"
+
+  GamePublicSubnetIds:
+    Value: !Join [",", [!Ref GamePublicSubnetA, !Ref GamePublicSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-Public-Subnet-Ids"
+
+  GamePrivateSubnetIds:
+    Value: !Join [",", [!Ref GamePrivateSubnetA, !Ref GamePrivateSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-Private-Subnet-Ids"
+
+  GamePrivateDbSubnetIds:
+    Value: !Join [",", [!Ref GamePrivateDbSubnetA, !Ref GamePrivateDbSubnetB]]
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-Private-Db-Subnet-
