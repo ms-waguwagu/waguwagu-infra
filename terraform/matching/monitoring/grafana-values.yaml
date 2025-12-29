@@ -3,6 +3,9 @@ adminPassword: admin
 
 service:
   type: LoadBalancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: external
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
 
 ########################
 # Datasources
@@ -11,15 +14,21 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
-      - name: Prometheus-Game
-        type: prometheus
-        url: http://k8s-monitori-promethe-f2f2273249-da43051036de016b.elb.ap-northeast-2.amazonaws.com #하드코딩, 매일 바꿔야 하는 값
-        access: proxy
-        isDefault: true
+      # - name: Prometheus-Game
+      #   type: prometheus
+      #   url: http://k8s-monitori-promethe-8a1d8adbee-8b401e8a0e6da178.elb.ap-northeast-2.amazonaws.com #하드코딩, 매일 바꿔야 하는 값
+      #   access: proxy
+      #   isDefault: true
 
       - name: Prometheus-Matching
         type: prometheus
         url: http://prometheus-server.monitoring.svc.cluster.local
+        access: proxy
+        isDefault: false
+
+      - name: Loki
+        type: loki
+        url: http://loki.monitoring.svc.cluster.local:3100
         access: proxy
         isDefault: false
 
@@ -48,6 +57,15 @@ dashboardProviders:
         options:
           path: /var/lib/grafana/dashboards/matching
 
+      - name: loki
+        orgId: 1
+        folder: Loki
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/loki
+
 dashboards:
   game:
     kubernetes-cluster-game:
@@ -60,6 +78,118 @@ dashboards:
       gnetId: 15757
       revision: 1
       datasource: Prometheus-Matching
+
+  loki:
+    loki-logs-stable:
+      json: |
+        {
+          "uid": "loki-logs-stable",
+          "title": "Loki Logs (Stable)",
+          "tags": ["loki", "logs", "production"],
+          "timezone": "browser",
+          "schemaVersion": 38,
+          "version": 1,
+          "refresh": "10s",
+
+          "templating": {
+            "list": [
+              {
+                "name": "cluster",
+                "type": "query",
+                "datasource": { "type": "loki", "uid": "Loki" },
+                "query": { "label": "cluster" },
+                "refresh": 1,
+                "includeAll": true,
+                "allValue": ".+"
+              },
+              {
+                "name": "namespace",
+                "type": "query",
+                "datasource": { "type": "loki", "uid": "Loki" },
+                "query": "label_values({cluster=~\"$cluster\"}, namespace)",
+                "refresh": 1,
+                "includeAll": true,
+                "allValue": ".+"
+              },
+              {
+                "name": "pod",
+                "type": "query",
+                "datasource": { "type": "loki", "uid": "Loki" },
+                "query": "label_values({cluster=~\"$cluster\", namespace=~\"$namespace\"}, pod)",
+                "refresh": 1,
+                "includeAll": true,
+                "allValue": ".+"
+              },
+              {
+                "name": "container",
+                "type": "query",
+                "datasource": { "type": "loki", "uid": "Loki" },
+                "query": "label_values({cluster=~\"$cluster\", namespace=~\"$namespace\", pod=~\"$pod\"}, container)",
+                "refresh": 1,
+                "includeAll": true,
+                "allValue": ".+"
+              },
+              {
+                "name": "level",
+                "type": "custom",
+                "query": "error,warn,info,debug",
+                "includeAll": true,
+                "allValue": ".+"
+              }
+            ]
+          },
+
+          "panels": [
+            {
+              "id": 1,
+              "type": "logs",
+              "title": "All Logs",
+              "datasource": { "type": "loki", "uid": "Loki" },
+              "gridPos": { "x": 0, "y": 0, "w": 24, "h": 9 },
+              "targets": [
+                {
+                  "expr": "{cluster=~\"$cluster\", namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\"} | logfmt | level=~\"$level\"",
+                  "refId": "A"
+                }
+              ],
+              "options": { "showTime": true, "wrapLogMessage": true }
+            },
+
+            {
+              "id": 2,
+              "type": "timeseries",
+              "title": "Log Rate by Level",
+              "datasource": { "type": "loki", "uid": "Loki" },
+              "gridPos": { "x": 0, "y": 9, "w": 24, "h": 8 },
+              "targets": [
+                {
+                  "expr": "sum by (level) (rate({cluster=~\"$cluster\", namespace=~\"$namespace\", pod=~\"$pod\", container=~\"$container\"} | logfmt | level=~\"$level\" [5m]))",
+                  "refId": "A"
+                }
+              ],
+              "fieldConfig": {
+                "defaults": {
+                  "custom": { "stacking": { "mode": "normal" } }
+                }
+              }
+            },
+
+            {
+              "id": 3,
+              "type": "logs",
+              "title": "ERROR Logs (Last 15m)",
+              "datasource": { "type": "loki", "uid": "Loki" },
+              "gridPos": { "x": 0, "y": 17, "w": 24, "h": 8 },
+              "targets": [
+                {
+                  "expr": "{cluster=~\"$cluster\", namespace=~\"$namespace\", pod=~\"$pod\"} | logfmt | level=\"error\"",
+                  "refId": "A"
+                }
+              ],
+              "options": { "showTime": true }
+            }
+          ]
+        }
 
 # ########################
 # # Sidecar (필수)
