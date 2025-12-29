@@ -2,10 +2,13 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "WaguWagu Project: S3 Bucket Setup"
 
 Resources:
+  # ============================================================
+  # Common WaguWagu S3 Bucket
+  # ============================================================
   WaguWaguBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "waguwagu-s3-bucket-${AWS::AccountId}-${AWS::Region}"
+      BucketName: !Sub "t3-wagu-s3-bucket"
       AccessControl: Private
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -22,15 +25,58 @@ Resources:
         - Key: Name
           Value: waguwagu-s3-bucket
 
+  # ============================================================
+  # Loki Log Storage S3 Bucket (NEW)
+  # ============================================================
+  LokiLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "t3-wagu-loki-logs"
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Name
+          Value: waguwagu-loki-logs
+        - Key: Purpose
+          Value: loki-log-storage
+
 Outputs:
+  # ============================================================
+  # Common Bucket Outputs
+  # ============================================================
   BucketName:
-    Description: S3 Bucket Name
+    Description: WaguWagu S3 Bucket Name
     Value: !Ref WaguWaguBucket
     Export:
       Name: waguwagu-s3-bucket
 
   BucketArn:
-    Description: S3 Bucket ARN
+    Description: WaguWagu S3 Bucket ARN
     Value: !GetAtt WaguWaguBucket.Arn
     Export:
       Name: waguwagu-s3-bucket-arn
+
+  # ============================================================
+  # Loki Bucket Outputs (NEW)
+  # ============================================================
+  LokiBucketName:
+    Description: Loki Logs S3 Bucket Name
+    Value: !Ref LokiLogsBucket
+    Export:
+      Name: waguwagu-loki-s3-bucket
+
+  LokiBucketArn:
+    Description: Loki Logs S3 Bucket ARN
+    Value: !GetAtt LokiLogsBucket.Arn
+    Export:
+      Name: waguwagu-loki-s3-bucket-arn
