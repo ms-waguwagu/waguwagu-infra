@@ -29,7 +29,7 @@ module "eks" {
   subnet_ids      = [data.aws_subnet.matching_private_a.id, data.aws_subnet.matching_private_b.id]
   node_group_name = "matching-node-group"
   instance_types    = ["t3.medium"]
-  desired_size      = 2
-  max_size          = 3
+  desired_size      = 3
+  max_size          = 4
   min_size          = 1
 }

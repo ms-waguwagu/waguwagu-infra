@@ -22,4 +22,5 @@ aws cloudformation deploy \
   --stack-name T3-Wagu-Cloudfront \
   --parameter-overrides \
     MatchingAlbDns=$MATCHING_DNS \
-  --capabilities CAPABILITY_NAMED_IAM
+  --capabilities CAPABILITY_NAMED_IAM \
+	--profile wagu
