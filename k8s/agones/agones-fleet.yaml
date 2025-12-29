@@ -62,6 +62,8 @@ spec:
                   value: /etc/tls/tls.crt
                 - name: TLS_KEY_PATH
                   value: /etc/tls/tls.key
+                - name: MATCHING_INTERNAL_URL
+                  value: http://k8s-matching-matching-7b35c382ad-a4b53f5ca666d62f.elb.ap-northeast-2.amazonaws.com/internal/game-finished
               volumeMounts:
                 - name: tls
                   mountPath: /etc/tls
