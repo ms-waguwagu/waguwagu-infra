@@ -15,10 +15,20 @@ spec:
     spec:
       containers:
         - name: matching
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:889fe29-3
+          image: 269397878918.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest
+          #061039804626
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
           env:
             - name: PORT
               value: "3000"
@@ -88,6 +98,7 @@ spec:
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
+
           volumeMounts:
             - name: allocator-client-cert
               mountPath: /etc/agones/allocator/client
@@ -95,6 +106,7 @@ spec:
             - name: allocator-ca-cert
               mountPath: /etc/agones/allocator/ca
               readOnly: true
+
       volumes:
         - name: allocator-client-cert
           secret:
