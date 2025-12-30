@@ -13,10 +13,12 @@ loki:
     replication_factor: 1
     path_prefix: /tmp/loki
 
-  storageConfig:
-    aws:
-      s3: s3://ap-northeast-2/t3-wagu-loki-logs
+  storage:
+    type: s3
+    s3:
       region: ap-northeast-2
+      bucketnames: t3-wagu-loki-logs
+
 
   schemaConfig:
     configs:
@@ -47,6 +49,11 @@ logs:
   enabled: true
 
 grafanaAgent:
+  enabled: false
+
+promtail:
   enabled: true
-  logs:
-    enabled: true
+  config:
+    snippets:
+      pipelineStages:
+        - cri: {}
