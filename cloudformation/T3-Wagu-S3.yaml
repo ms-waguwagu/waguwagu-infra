@@ -23,7 +23,7 @@ Resources:
               SSEAlgorithm: AES256
       Tags:
         - Key: Name
-          Value: waguwagu-s3-bucket
+          Value: t3-wagu-s3-bucket
 
   # ============================================================
   # Loki Log Storage S3 Bucket (NEW)
@@ -46,7 +46,7 @@ Resources:
               SSEAlgorithm: AES256
       Tags:
         - Key: Name
-          Value: waguwagu-loki-logs
+          Value: t3-wagu-loki-logs
         - Key: Purpose
           Value: loki-log-storage
 
@@ -58,13 +58,13 @@ Outputs:
     Description: WaguWagu S3 Bucket Name
     Value: !Ref WaguWaguBucket
     Export:
-      Name: waguwagu-s3-bucket
+      Name: t3-wagu-s3-bucket
 
   BucketArn:
     Description: WaguWagu S3 Bucket ARN
     Value: !GetAtt WaguWaguBucket.Arn
     Export:
-      Name: waguwagu-s3-bucket-arn
+      Name: t3-wagu-s3-bucket-arn
 
   # ============================================================
   # Loki Bucket Outputs (NEW)
@@ -73,10 +73,10 @@ Outputs:
     Description: Loki Logs S3 Bucket Name
     Value: !Ref LokiLogsBucket
     Export:
-      Name: waguwagu-loki-s3-bucket
+      Name: t3-wagu-loki-s3-bucket
 
   LokiBucketArn:
     Description: Loki Logs S3 Bucket ARN
     Value: !GetAtt LokiLogsBucket.Arn
     Export:
-      Name: waguwagu-loki-s3-bucket-arn
+      Name: t3-wagu-loki-s3-bucket-arn
