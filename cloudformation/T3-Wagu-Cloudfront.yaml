@@ -34,7 +34,7 @@ Resources:
           - Id: WaguWaguFrontendOrigin
             DomainName: !Sub
               - "${BucketName}.s3.${AWS::Region}.amazonaws.com"
-              - BucketName: !ImportValue waguwagu-s3-bucket
+              - BucketName: !ImportValue t3-wagu-s3-bucket
             S3OriginConfig:
               OriginAccessIdentity: "" # OAC 사용 시 비워둠
             OriginAccessControlId: !GetAtt TWCloudFrontOAC.Id
@@ -99,7 +99,7 @@ Resources:
   TWS3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !ImportValue waguwagu-s3-bucket
+      Bucket: !ImportValue t3-wagu-s3-bucket
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -110,7 +110,7 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub
               - "${BucketArn}/*"
-              - BucketArn: !ImportValue waguwagu-s3-bucket-arn
+              - BucketArn: !ImportValue t3-wagu-s3-bucket-arn
             Condition:
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${TWCloudFrontDistribution.Id}"

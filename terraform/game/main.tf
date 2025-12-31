@@ -42,8 +42,8 @@ module "eks" {
   node_group_name = "game-node-group-v2"
   instance_types    = ["t3.medium"]
   disk_size       = 60
-  desired_size      = 2
-  max_size          = 3
+  desired_size      = 4
+  max_size          = 5
   min_size          = 1
 
   # Public Node Group for Agones
@@ -51,9 +51,9 @@ module "eks" {
   public_node_group_name   = "game-public-node-group"
   public_subnet_ids        = [data.aws_subnet.game_public_a.id, data.aws_subnet.game_public_b.id]
   public_instance_types    = ["t3.medium"]
-  public_desired_size      = 1
-  public_max_size          = 3
-  public_min_size          = 0
+  public_desired_size      = 3
+  public_max_size          = 4
+  public_min_size          = 1
 }
 
 
