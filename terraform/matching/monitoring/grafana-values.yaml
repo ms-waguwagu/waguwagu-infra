@@ -14,6 +14,12 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
+      - name: Prometheus-Game
+        type: prometheus
+        url: http://k8s-monitori-promethe-dff703cb11-2a447f383332d3b5.elb.ap-northeast-2.amazonaws.com #하드코딩, 매일 바꿔야 하는 값
+        access: proxy
+        isDefault: true
+
       - name: Prometheus-Matching
         type: prometheus
         url: http://prometheus-server.monitoring.svc.cluster.local
@@ -33,14 +39,23 @@ dashboardProviders:
   dashboardproviders.yaml:
     apiVersion: 1
     providers:
-      - name: prometheus
+      - name: game
         orgId: 1
-        folder: Prometheus
+        folder: Game
         type: file
         disableDeletion: true
-        editable: true
+        editable: false
         options:
-          path: /var/lib/grafana/dashboards/prometheus
+          path: /var/lib/grafana/dashboards/game
+
+      - name: matching
+        orgId: 1
+        folder: Matching
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/matching
 
       - name: loki
         orgId: 1
@@ -52,29 +67,15 @@ dashboardProviders:
           path: /var/lib/grafana/dashboards/loki
 
 dashboards:
-  prometheus:
-    kubernetes-cluster-overview:
-      gnetId: 3119
-      revision: 1
-      datasource: Prometheus-Matching
-
-    kubernetes-cluster-monitoring-classic:
+  game:
+    kubernetes-cluster-game:
       gnetId: 7249
       revision: 1
-      datasource: Prometheus-Matching
+      datasource: Prometheus-Game
 
-    kubernetes-nodes:
+  matching:
+    kubernetes-cluster-matching:
       gnetId: 15757
-      revision: 1
-      datasource: Prometheus-Matching
-
-    kubernetes-nodes-simple:
-      gnetId: 11074
-      revision: 1
-      datasource: Prometheus-Matching
-
-    kubernetes-pods-simple:
-      gnetId: 747
       revision: 1
       datasource: Prometheus-Matching
 
