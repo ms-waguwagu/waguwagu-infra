@@ -1,6 +1,14 @@
+############################################
+# EKS Cluster & OIDC Data
+############################################
+
 data "aws_iam_openid_connect_provider" "eks" {
   url = data.aws_eks_cluster.this.identity[0].oidc[0].issuer
 }
+
+############################################
+# Loki IRSA Assume Role Policy
+############################################
 
 data "aws_iam_policy_document" "loki_assume" {
   statement {
@@ -20,15 +28,34 @@ data "aws_iam_policy_document" "loki_assume" {
       )}:sub"
       values = ["system:serviceaccount:monitoring:loki"]
     }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(
+        data.aws_eks_cluster.this.identity[0].oidc[0].issuer,
+        "https://",
+        ""
+      )}:aud"
+      values = ["sts.amazonaws.com"]
+    }
   }
 }
+
+############################################
+# Loki IRSA Role
+############################################
 
 resource "aws_iam_role" "loki" {
   name               = "${var.cluster_name}-loki-irsa-role"
   assume_role_policy = data.aws_iam_policy_document.loki_assume.json
 }
 
+############################################
+# Loki S3 Access Policy
+############################################
+
 resource "aws_iam_role_policy" "loki" {
+  name = "${var.cluster_name}-loki-s3-policy"
   role = aws_iam_role.loki.id
 
   policy = jsonencode({
@@ -37,14 +64,14 @@ resource "aws_iam_role_policy" "loki" {
       {
         Effect = "Allow"
         Action = [
-          "s3:PutObject",
-          "s3:GetObject",
           "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
           "s3:DeleteObject"
         ]
         Resource = [
-          "arn:aws:s3:::t3-wagu-loki-logs",
-          "arn:aws:s3:::t3-wagu-loki-logs/*"
+          data.aws_cloudformation_export.loki_bucket_arn.value,
+          "${data.aws_cloudformation_export.loki_bucket_arn.value}/*"
         ]
       }
     ]

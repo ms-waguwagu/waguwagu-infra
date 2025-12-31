@@ -3,11 +3,11 @@
 # =============================================================================
 resource "helm_release" "prometheus" {
   name       = "prometheus"
-  namespace  = "monitoring"
+  namespace  = kubernetes_namespace.monitoring.metadata[0].name
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "prometheus"
 
-  create_namespace = true
+  create_namespace = false
 
   values = [
     file("${path.module}/prometheus-values.yaml")
@@ -19,11 +19,11 @@ resource "helm_release" "prometheus" {
 # =============================================================================
 resource "helm_release" "grafana" {
   name       = "grafana"
-  namespace  = "monitoring"
+  namespace  = kubernetes_namespace.monitoring.metadata[0].name
   repository = "https://grafana.github.io/helm-charts"
   chart      = "grafana"
 
-  create_namespace = true
+  create_namespace = false
 
   values = [
     file("${path.module}/grafana-values.yaml")
@@ -33,65 +33,88 @@ resource "helm_release" "grafana" {
 }
 
 # =============================================================================
-# Loki
+# Loki (6.x + IRSA + S3)
 # =============================================================================
-
 resource "helm_release" "loki" {
   name       = "loki"
-  namespace  = "monitoring"
+  namespace  = kubernetes_namespace.monitoring.metadata[0].name
   repository = "https://grafana.github.io/helm-charts"
   chart      = "loki"
-  version    = "5.47.2"
+  version    = "6.46.0"
 
-  timeout = 150
-  wait    = true
+values = [
+  file("${path.module}/configs/loki-values.yaml"),
+  yamlencode({
+    deploymentMode = "SingleBinary"
 
-  values = [
-    templatefile("${path.module}/loki-values.yaml", {
-      loki_role_arn = aws_iam_role.loki.arn
-      region        = var.region
-    })
-  ]
+    singleBinary = {
+      replicas = 1
+    }
+
+    read = {
+      enabled  = false
+      replicas = 0
+    }
+
+    write = {
+      enabled  = false
+      replicas = 0
+    }
+
+    backend = {
+      enabled  = false
+      replicas = 0
+    }
+
+    persistence = {
+      enabled = false
+    }
+
+    loki = {
+      storage = {
+        bucketNames = {
+          chunks = data.aws_cloudformation_export.loki_bucket_name.value
+          ruler  = data.aws_cloudformation_export.loki_bucket_name.value
+          admin  = data.aws_cloudformation_export.loki_bucket_name.value
+        }
+      }
+    }
+
+    serviceAccount = {
+      create = true
+      name   = "loki"
+      annotations = {
+        "eks.amazonaws.com/role-arn" = aws_iam_role.loki.arn
+      }
+    }
+  })
+]
+
+
+
 
   depends_on = [
-    aws_iam_role_policy.loki
+    aws_iam_role_policy.loki,
+    kubernetes_namespace.monitoring
   ]
 }
 
+# =============================================================================
+# Promtail
+# =============================================================================
 resource "helm_release" "promtail" {
   name       = "promtail"
-  namespace  = "monitoring"
+  namespace  = kubernetes_namespace.monitoring.metadata[0].name
   repository = "https://grafana.github.io/helm-charts"
   chart      = "promtail"
+  version    = "6.15.5"
 
-  values = [<<EOF
-config:
-  clients:
-    - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+  values = [
+    file("${path.module}/configs/promtail-values.yaml")
+  ]
 
-  scrape_configs:
-    - job_name: kubernetes-pods
-      kubernetes_sd_configs:
-        - role: pod
-
-      relabel_configs:
-        # namespace 라벨
-        - source_labels: [__meta_kubernetes_namespace]
-          target_label: namespace
-
-        # pod 이름 라벨
-        - source_labels: [__meta_kubernetes_pod_name]
-          target_label: pod
-
-        # container 이름 라벨
-        - source_labels: [__meta_kubernetes_pod_container_name]
-          target_label: container
-
-        # 로그 파일 경로 (필수)
-        - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
-          separator: /
-          target_label: __path__
-          replacement: /var/log/pods/*$1/*.log
-EOF
+  depends_on = [
+    helm_release.loki,
+    kubernetes_namespace.monitoring
   ]
 }
