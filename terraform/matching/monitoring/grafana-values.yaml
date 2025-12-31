@@ -14,12 +14,6 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
-      # - name: Prometheus-Game
-      #   type: prometheus
-      #   url: http://k8s-monitori-promethe-8a1d8adbee-8b401e8a0e6da178.elb.ap-northeast-2.amazonaws.com #하드코딩, 매일 바꿔야 하는 값
-      #   access: proxy
-      #   isDefault: true
-
       - name: Prometheus-Matching
         type: prometheus
         url: http://prometheus-server.monitoring.svc.cluster.local
@@ -39,23 +33,14 @@ dashboardProviders:
   dashboardproviders.yaml:
     apiVersion: 1
     providers:
-      - name: game
+      - name: prometheus
         orgId: 1
-        folder: Game
+        folder: Prometheus
         type: file
         disableDeletion: true
-        editable: false
+        editable: true
         options:
-          path: /var/lib/grafana/dashboards/game
-
-      - name: matching
-        orgId: 1
-        folder: Matching
-        type: file
-        disableDeletion: true
-        editable: false
-        options:
-          path: /var/lib/grafana/dashboards/matching
+          path: /var/lib/grafana/dashboards/prometheus
 
       - name: loki
         orgId: 1
@@ -67,98 +52,29 @@ dashboardProviders:
           path: /var/lib/grafana/dashboards/loki
 
 dashboards:
-  game:
-    kubernetes-cluster-game:
+  prometheus:
+    kubernetes-cluster-overview:
+      gnetId: 3119
+      revision: 1
+      datasource: Prometheus-Matching
+
+    kubernetes-cluster-monitoring-classic:
       gnetId: 7249
       revision: 1
-      datasource: Prometheus-Game
+      datasource: Prometheus-Matching
 
-  matching:
-    kubernetes-cluster-matching:
+    kubernetes-nodes:
       gnetId: 15757
       revision: 1
       datasource: Prometheus-Matching
 
-  loki:
-    loki-logs-stable:
-      adminUser: admin
-adminPassword: admin
-
-service:
-  type: LoadBalancer
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: external
-    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-
-########################
-# Datasources
-########################
-datasources:
-  datasources.yaml:
-    apiVersion: 1
-    datasources:
-      # - name: Prometheus-Game
-      #   type: prometheus
-      #   url: http://k8s-monitori-promethe-8a1d8adbee-8b401e8a0e6da178.elb.ap-northeast-2.amazonaws.com #하드코딩, 매일 바꿔야 하는 값
-      #   access: proxy
-      #   isDefault: true
-
-      - name: Prometheus-Matching
-        type: prometheus
-        url: http://prometheus-server.monitoring.svc.cluster.local
-        access: proxy
-        isDefault: false
-
-      - name: Loki
-        type: loki
-        url: http://loki.monitoring.svc.cluster.local:3100
-        access: proxy
-        isDefault: false
-
-########################
-# Dashboard
-########################
-dashboardProviders:
-  dashboardproviders.yaml:
-    apiVersion: 1
-    providers:
-      - name: game
-        orgId: 1
-        folder: Game
-        type: file
-        disableDeletion: true
-        editable: false
-        options:
-          path: /var/lib/grafana/dashboards/game
-
-      - name: matching
-        orgId: 1
-        folder: Matching
-        type: file
-        disableDeletion: true
-        editable: false
-        options:
-          path: /var/lib/grafana/dashboards/matching
-
-      - name: loki
-        orgId: 1
-        folder: Loki
-        type: file
-        disableDeletion: true
-        editable: false
-        options:
-          path: /var/lib/grafana/dashboards/loki
-
-dashboards:
-  game:
-    kubernetes-cluster-game:
-      gnetId: 7249
+    kubernetes-nodes-simple:
+      gnetId: 11074
       revision: 1
-      datasource: Prometheus-Game
+      datasource: Prometheus-Matching
 
-  matching:
-    kubernetes-cluster-matching:
-      gnetId: 15757
+    kubernetes-pods-simple:
+      gnetId: 747
       revision: 1
       datasource: Prometheus-Matching
 
@@ -247,22 +163,6 @@ dashboards:
             }
           ]
         }
-
-
-# ########################
-# # Sidecar (필수)
-# ########################
-sidecar:
-  dashboards:
-    enabled: true
-
-########################
-# Anonymous Access
-########################
-grafana.ini:
-  auth.anonymous:
-    enabled: true
-    org_role: Viewer
 
 # ########################
 # # Sidecar (필수)
