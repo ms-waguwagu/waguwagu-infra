@@ -27,7 +27,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          CidrIp: 10.0.0.0/16 
+          CidrIp: 10.0.0.0/16
           Description: "Allow MySQL Access from VPC"
 
   # [2. Subnet Group]
@@ -66,14 +66,13 @@ Resources:
       AllocatedStorage: !Ref AllocatedStorage
       StorageType: gp2
       StorageEncrypted: true
-      
+
       MasterUsername: !Ref MasterUsername
       # Managed by AWS Secrets Manager
-      ManageMasterUserPassword: true 
+      ManageMasterUserPassword: true
 
       PubliclyAccessible: false
       MultiAZ: true
-      BackupRetentionPeriod: 14
       PreferredBackupWindow: 02:00-03:00
 
       VPCSecurityGroups:
@@ -81,12 +80,12 @@ Resources:
       DBSubnetGroupName: !Ref WaguProdDBSubnetGroup
       DBParameterGroupName: !Ref WaguProdDBParameterGroup
 
-      DeletionProtection: true
+      DeletionProtection: false
       EnableCloudwatchLogsExports:
         - error
         - general
         - slowquery
-      
+
       EnablePerformanceInsights: true
       PerformanceInsightsRetentionPeriod: 7
 
