@@ -28,9 +28,6 @@ loki:
     max_chunk_age: 1m
     chunk_target_size: 1048576 # 1MB
 
-singleBinary:
-  replicas: 1
-
 read:
   enabled: false
   replicas: 0
@@ -62,3 +59,13 @@ persistence:
   enabled: true
   storageClassName: gp2
   size: 10Gi
+
+singleBinary:
+  replicas: 1
+  service:
+    type: LoadBalancer
+    ports:
+      http: 3100
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
