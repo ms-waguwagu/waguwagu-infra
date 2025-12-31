@@ -83,7 +83,7 @@ spec:
 
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수
-              value: "https://k8s-agonessy-agonesal-449f948e7f-03ea70379dce07f5.elb.ap-northeast-2.amazonaws.com"
+              value: "https://k8s-agonessy-agonesal-0aec69103e-9673e1eb8d31ee3b.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH
