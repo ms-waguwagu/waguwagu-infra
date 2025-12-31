@@ -15,8 +15,7 @@ spec:
     spec:
       containers:
         - name: matching
-          image: 269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:d57447f-7
-          # 061039804626
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
@@ -84,13 +83,16 @@ spec:
 
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수
-              value: "https://k8s-agonessy-agonesal-4afd6365a0-8c62bc4499a150ef.elb.ap-northeast-2.amazonaws.com"
+              value: "https://k8s-agonessy-agonesal-3401dfe366-a0554574c75db365.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH
               value: "/etc/agones/allocator/client/tls.key"
             - name: AGONES_CA_CERT_PATH
               value: "/etc/agones/allocator/ca/tls-ca.crt"
+
+            - name: ROUTE53_HOSTED_ZONE_ID
+              value: Z03982962I5Q4PS90RDSK
 
           readinessProbe:
             httpGet:
