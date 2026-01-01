@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: matching
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:558410f-3
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:558410f-3 #
 
           imagePullPolicy: Always
           ports:
