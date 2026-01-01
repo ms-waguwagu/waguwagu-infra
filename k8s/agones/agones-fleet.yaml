@@ -7,7 +7,7 @@ metadata:
     app: waguwagu
 spec:
   # Ready 또는 Allocated 상태로 유지할 GameServer 개수
-  replicas: 5
+  replicas: 3
 
   # 스케줄링 전략. 기본값은 Packed.
   scheduling: Packed
@@ -39,45 +39,36 @@ spec:
         logLevel: Info
       template:
         spec:
+          # 퍼블릭 노드그룹에만 스케줄링 (Terraform에서 설정한 라벨)
+          nodeSelector:
+            role: game
+
+          # Taint 허용 (Terraform에서 설정한 Taint)
+          tolerations:
+            - key: "game-only"
+              operator: "Equal"
+              value: "true"
+              effect: "NoSchedule"
+
           terminationGracePeriodSeconds: 30
           containers:
             - name: game-server
-              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:889fe29-3
-
+              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:latest
               imagePullPolicy: IfNotPresent
               ports:
                 - containerPort: 3001
               env:
-                - name: GAME_PORT
-                  valueFrom:
-                    secretKeyRef:
-                      name: game-secret
-                      key: GAME_PORT
-                - name: DB_HOST
-                  valueFrom:
-                    secretKeyRef:
-                      name: game-secret
-                      key: DB_HOST
-                - name: DB_PORT
-                  valueFrom:
-                    secretKeyRef:
-                      name: game-secret
-                      key: DB_PORT
-                - name: DB_USER
-                  valueFrom:
-                    secretKeyRef:
-                      name: game-secret
-                      key: DB_USER
-                - name: DB_NAME
-                  valueFrom:
-                    secretKeyRef:
-                      name: game-secret
-                      key: DB_NAME
-                - name: DB_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: game-secret
-                      key: DB_PASSWORD
+                - name: TLS_CERT_PATH
+                  value: /etc/tls/tls.crt
+                - name: TLS_KEY_PATH
+                  value: /etc/tls/tls.key
+                - name: MATCHING_INTERNAL_URL
+                  value: http://k8s-matching-matching-7b35c382ad-a4b53f5ca666d62f.elb.ap-northeast-2.amazonaws.com/internal/game-finished
+              volumeMounts:
+                - name: tls
+                  mountPath: /etc/tls
+                  readOnly: true
+
               resources:
                 requests:
                   cpu: "250m"
@@ -85,3 +76,10 @@ spec:
                 limits:
                   cpu: "1000m"
                   memory: "1Gi"
+
+          volumes:
+            - name: tls
+              secret:
+                secretName: game-wss-tls
+
+      

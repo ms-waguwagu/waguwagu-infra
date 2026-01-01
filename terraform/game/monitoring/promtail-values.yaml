@@ -1,0 +1,39 @@
+config:
+  clients: #Loki NLB, 매일 바뀌는 값
+    - url: http://aa43bfbf99b5947c88c3f7141d363202-605213910cb30658.elb.ap-northeast-2.amazonaws.com:3100/loki/api/v1/push
+      tenant_id: game
+
+  snippets:
+    extraRelabelConfigs:
+      - action: replace
+        target_label: cluster
+        replacement: game
+
+  scrape_configs:
+    - job_name: kubernetes-pods
+      kubernetes_sd_configs:
+        - role: pod
+
+      pipeline_stages:
+        - cri: {}
+
+      relabel_configs:
+        # namespace
+        - source_labels: [__meta_kubernetes_namespace]
+          target_label: namespace
+
+        # pod
+        - source_labels: [__meta_kubernetes_pod_name]
+          target_label: pod
+
+        # container
+        - source_labels: [__meta_kubernetes_pod_container_name]
+          target_label: container
+
+        # log path
+        - source_labels:
+            - __meta_kubernetes_pod_uid
+            - __meta_kubernetes_pod_container_name
+          separator: /
+          target_label: __path__
+          replacement: /var/log/pods/*$1/*.log

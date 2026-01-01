@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: game-wss-wildcard
+  namespace: game
+spec:
+  secretName: game-wss-tls
+  issuerRef:
+    name: letsencrypt-route53
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.game.waguwagu.cloud"
