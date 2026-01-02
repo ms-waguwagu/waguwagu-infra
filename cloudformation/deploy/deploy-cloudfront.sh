@@ -32,7 +32,7 @@ echo "Matching ALB: $MATCHING_DNS"
 
 echo "▶ CloudFront 배포"
 aws cloudformation deploy \
-  --template-file T3-Wagu-Cloudfront.yaml \
+  --template-file ../seoul/T3-Wagu-Cloudfront.yaml \
   --stack-name T3-Wagu-Cloudfront \
   --parameter-overrides \
     MatchingAlbDns=$MATCHING_DNS \
