@@ -79,7 +79,7 @@ aws cloudformation deploy \
 step "CloudTrail 배포"
 aws cloudformation deploy \
   --stack-name T3-Wagu-Cloudtrail \
-  --template-file "$SEOUL_DIR/T3-Wagu-cloudwatch.yaml" \
+  --template-file "$SEOUL_DIR/T3-Wagu-Cloudtrail.yaml" \
   --capabilities CAPABILITY_NAMED_IAM \
   --profile wagu
 
