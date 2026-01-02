@@ -66,6 +66,12 @@ spec:
                   value: /etc/tls/tls.crt
                 - name: TLS_KEY_PATH
                   value: /etc/tls/tls.key
+                - name: AWS_REGION
+                  value: "ap-northeast-2"
+                - name: AWS_XRAY_DAEMON_ADDRESS
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: status.hostIP
                 # - name: MATCHING_INTERNAL_URL
                 #   value: http://k8s-matching-matching-f15df60d3c-1330291703.ap-northeast-2.elb.amazonaws.com/internal/game-finished
               volumeMounts:
