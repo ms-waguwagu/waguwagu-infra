@@ -50,6 +50,7 @@ Resources:
         - Key: Purpose
           Value: loki-log-storage
 
+
 Outputs:
   # ============================================================
   # Common Bucket Outputs
@@ -80,3 +81,4 @@ Outputs:
     Value: !GetAtt LokiLogsBucket.Arn
     Export:
       Name: t3-wagu-loki-s3-bucket-arn
+

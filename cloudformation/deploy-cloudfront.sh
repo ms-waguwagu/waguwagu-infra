@@ -2,7 +2,6 @@
 set -e
 
 MATCHING_CTX="arn:aws:eks:ap-northeast-2:061039804626:cluster/T3-Wagu-Matching-EKS" 
- 
 
 echo "▶ 매칭 클러스터로 전환" 
 kubectl config use-context "$MATCHING_CTX"
