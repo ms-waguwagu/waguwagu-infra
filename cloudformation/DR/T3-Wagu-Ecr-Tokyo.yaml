@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WAGUWAGU DR ECR repositories for game and matching servers (Tokyo)
+
+Resources:
+  ############################################################
+  # DR Game Server ECR
+  ############################################################
+  WaguDrGameServerECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: t3-wagu-dr-game-server
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: t3-wagu-dr-game-server
+        - Key: Project
+          Value: WAGUWAGU
+        - Key: Environment
+          Value: DR
+        - Key: Team
+          Value: T3-Wagu
+
+  ############################################################
+  # DR Matching Server ECR
+  ############################################################
+  WaguDrMatchingServerECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: t3-wagu-dr-matching-server
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: t3-wagu-dr-matching-server
+        - Key: Project
+          Value: WAGUWAGU
+        - Key: Environment
+          Value: DR
+        - Key: Team
+          Value: T3-Wagu
+
+Outputs:
+  ############################################################
+  # Exports
+  ############################################################
+  GameServerECRUri:
+    Description: DR ECR URI for Game Server
+    Value: !GetAtt WaguDrGameServerECR.RepositoryUri
+    Export:
+      Name: T3-Wagu-DR-GameServer-ECR-URI
+
+  MatchingServerECRUri:
+    Description: DR ECR URI for Matching Server
+    Value: !GetAtt WaguDrMatchingServerECR.RepositoryUri
+    Export:
+      Name: T3-Wagu-DR-MatchingServer-ECR-URI

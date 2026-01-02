@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WAGUWAGU DR (Tokyo) Security Groups (ALB, EKS, Valkey)
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu-DR
+
+Resources:
+  ############################################################
+  # 1) Matching ALB SG
+  ############################################################
+  MatchingAlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Matching ALB SG
+      VpcId: !ImportValue T3-Wagu-DR-Matching-VPC-Id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-ALB-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 2) Game ALB SG
+  ############################################################
+  GameAlbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: DR Game ALB SG
+      VpcId: !ImportValue T3-Wagu-DR-Game-VPC-Id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-ALB-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 3) Matching EKS Node SG
+  ############################################################
+  MatchingEksNodeSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: DR Matching EKS Node SG
+      VpcId: !ImportValue T3-Wagu-DR-Matching-VPC-Id
+      SecurityGroupIngress:
+        # ALB -> Matching Server
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref MatchingAlbSG
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-EKS-Node-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 4) Game EKS Node SG
+  ############################################################
+  GameEksNodeSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Game EKS Node SG
+      VpcId: !ImportValue T3-Wagu-DR-Game-VPC-Id
+      SecurityGroupIngress:
+        # ALB -> Game Server
+        - IpProtocol: tcp
+          FromPort: 3001
+          ToPort: 3001
+          SourceSecurityGroupId: !Ref GameAlbSG
+
+        # Matching -> Agones allocator (VPC Peering)
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.10.0.0/16 # DR Matching VPC CIDR
+
+        # User -> GameServer (Agones Dynamic Ports)
+        - IpProtocol: tcp
+          FromPort: 30000
+          ToPort: 32767
+          CidrIp: 0.0.0.0/0
+
+        # Prometheus -> Game EKS Node
+        - IpProtocol: tcp
+          FromPort: 9090
+          ToPort: 9090
+          CidrIp: 10.10.0.0/16
+
+        # Matching -> Game (VPC Peering)
+        - IpProtocol: tcp
+          FromPort: 3001
+          ToPort: 3001
+          CidrIp: 10.10.0.0/16 # DR Matching VPC CIDR
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-EKS-Node-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # 5) Valkey (Redis) SG
+  ############################################################
+  ValkeySG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: DR Valkey SG
+      VpcId: !ImportValue T3-Wagu-DR-Matching-VPC-Id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref MatchingEksNodeSG
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Valkey-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+
+Outputs:
+  MatchingAlbSGId:
+    Value: !Ref MatchingAlbSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingAlbSGId"
+
+  GameAlbSGId:
+    Value: !Ref GameAlbSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-GameAlbSGId"
+
+  MatchingEksNodeSGId:
+    Value: !Ref MatchingEksNodeSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingEksNodeSGId"
+
+  GameEksNodeSGId:
+    Value: !Ref GameEksNodeSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-GameEksNodeSGId"
+
+  ValkeySGId:
+    Value: !Ref ValkeySG
+    Export:
+      Name: !Sub "${ProjectPrefix}-ValkeySGId"

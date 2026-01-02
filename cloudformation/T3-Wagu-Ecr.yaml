@@ -82,10 +82,10 @@ Outputs:
     Description: ECR URI for Game Server
     Value: !GetAtt WaguGameServerECR.RepositoryUri
     Export:
-      Name: WAGUWAGU-GameServer-ECR-URI
+      Name: T3-Wagu-GameServer-ECR-URI
 
   MatchingServerECRUri:
     Description: ECR URI for Matching Server
     Value: !GetAtt WaguMatchingServerECR.RepositoryUri
     Export:
-      Name: WAGUWAGU-MatchingServer-ECR-URI
+      Name: T3-Wagu-MatchingServer-ECR-URI
