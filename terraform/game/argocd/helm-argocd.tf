@@ -1,5 +1,4 @@
-
-resource "kubernetes_namespace" "argocd" {
+resource "kubernetes_namespace_v1" "argocd" {
   metadata {
     name = "argocd"
   }
@@ -19,6 +18,6 @@ resource "helm_release" "argocd" {
   create_namespace = false
 
   depends_on = [
-    kubernetes_namespace.argocd
+    kubernetes_namespace_v1.argocd
   ]
 }

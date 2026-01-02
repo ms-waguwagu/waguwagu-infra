@@ -16,7 +16,6 @@ spec:
     namespace: game
 
   syncPolicy:
-    {}
-    # automated:
-    #   prune: true
-    #   selfHeal: true
+    automated:
+      prune: true
+      selfHeal: true
