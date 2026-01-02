@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Wagu DR Aurora MySQL Global Database - Secondary (Tokyo)
+
+Parameters:
+  DBInstanceClass:
+    Type: String
+    Default: db.r6g.large
+
+Resources:
+  # 1. Subnet Group
+  WaguAuroraSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Aurora subnet group DR
+      SubnetIds: !Split
+        - ","
+        - !ImportValue T3-Wagu-DR-Matching-Private-Db-Subnet-Ids
+
+  # 2. Secondary Cluster
+  WaguAuroraSecondaryCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DBClusterIdentifier: wagu-dr-aurora-cluster
+      Engine: aurora-mysql
+      EngineVersion: "8.0.mysql_aurora.3.04.0"
+      GlobalClusterIdentifier: wagu-global-db
+      DBSubnetGroupName: !Ref WaguAuroraSubnetGroup
+
+  # 3. Reader Instance
+  WaguAuroraReader:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: wagu-dr-aurora-reader
+      DBClusterIdentifier: !Ref WaguAuroraSecondaryCluster
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: aurora-mysql
+      PubliclyAccessible: false
