@@ -7,7 +7,7 @@ metadata:
     app: waguwagu
 spec:
   # Ready 또는 Allocated 상태로 유지할 GameServer 개수
-  replicas: 3
+  replicas: 5
 
   # 스케줄링 전략. 기본값은 Packed.
   scheduling: Packed
@@ -25,7 +25,7 @@ spec:
         app: waguwagu
         mode: room-per-pod
     spec:
-      ports:
+      ports:        
         - name: game
           portPolicy: Dynamic
           containerPort: 3001
@@ -66,8 +66,8 @@ spec:
                   value: /etc/tls/tls.crt
                 - name: TLS_KEY_PATH
                   value: /etc/tls/tls.key
-                - name: MATCHING_INTERNAL_URL
-                  value: http://k8s-matching-matching-7b35c382ad-a4b53f5ca666d62f.elb.ap-northeast-2.amazonaws.com/internal/game-finished
+                # - name: MATCHING_INTERNAL_URL
+                #   value: http://k8s-matching-matching-f15df60d3c-1330291703.ap-northeast-2.elb.amazonaws.com/internal/game-finished
               volumeMounts:
                 - name: tls
                   mountPath: /etc/tls

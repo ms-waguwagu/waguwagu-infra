@@ -6,6 +6,7 @@ spec:
   acme:
     email: mandy021021@gmail.com
     server: https://acme-v02.api.letsencrypt.org/directory
+    # server: https://acme-staging-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-route53-account-key
     solvers:
