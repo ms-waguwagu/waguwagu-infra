@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WaguWagu minimal CloudTrail for audit logging
+
+Resources:
+  T3WaguCloudTrail:
+    Type: AWS::CloudTrail::Trail
+    Properties:
+      TrailName: T3-Wagu-CloudTrail
+      S3BucketName: 
+        Fn::ImportValue: t3-wagu-cloudtrail-bucket-name
+      CloudWatchLogsLogGroupArn: 
+        Fn::ImportValue: t3-wagu-cloudtrail-log-group-arn
+      CloudWatchLogsRoleArn: 
+        Fn::ImportValue: t3-wagu-cloudtrail-logging-role-arn
+      IsMultiRegionTrail: true
+      IncludeGlobalServiceEvents: true
+      EnableLogFileValidation: true
+      IsLogging: true
+      EventSelectors:
+        - ReadWriteType: All
+          IncludeManagementEvents: true
+
+Outputs:
+  CloudTrailName:
+    Value: !Ref T3WaguCloudTrail
+
+  CloudTrailBucket:
+    Value: 
+      Fn::ImportValue: t3-wagu-cloudtrail-bucket-name

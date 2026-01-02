@@ -241,3 +241,52 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref AlarmSNSTopic
+
+  # ============================================================
+  # CloudTrail Log Group & IAM Role
+  # ============================================================
+  CloudTrailLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "${ProjectPrefix}-CloudTrail-LogGroup"
+      RetentionInDays: 90
+
+  CloudTrailLoggingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectPrefix}-CloudTrail-Logging-Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: sts:AssumeRole
+
+  CloudTrailLoggingPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${ProjectPrefix}-CloudTrail-Logging-Policy"
+      Roles:
+        - !Ref CloudTrailLoggingRole
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !GetAtt CloudTrailLogGroup.Arn
+
+Outputs:
+  CloudTrailLogGroupArn:
+    Description: CloudTrail Log Group ARN
+    Value: !GetAtt CloudTrailLogGroup.Arn
+    Export:
+      Name: t3-wagu-cloudtrail-log-group-arn
+
+  CloudTrailLoggingRoleArn:
+    Description: CloudTrail Logging IAM Role ARN
+    Value: !GetAtt CloudTrailLoggingRole.Arn
+    Export:
+      Name: t3-wagu-cloudtrail-logging-role-arn
