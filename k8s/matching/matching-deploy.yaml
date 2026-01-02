@@ -96,7 +96,11 @@ spec:
               value: Z03982962I5Q4PS90RDSK
               
             - name: AWS_REGION
-              value: us-east-1
+              value: ap-northeast-2
+            - name: AWS_XRAY_DAEMON_ADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
