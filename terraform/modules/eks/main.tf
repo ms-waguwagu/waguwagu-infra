@@ -110,6 +110,11 @@ resource "aws_iam_role_policy_attachment" "node_AmazonSSMManagedInstanceCore" {
   role       = aws_iam_role.node.name
 }
 
+resource "aws_iam_role_policy_attachment" "node_AWSXrayWriteOnlyAccess" {
+  policy_arn = "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+  role       = aws_iam_role.node.name
+}
+
 resource "aws_eks_addon" "vpc_cni" {
   cluster_name = aws_eks_cluster.this.name
   addon_name   = "vpc-cni"
