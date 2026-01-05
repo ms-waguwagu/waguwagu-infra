@@ -24,12 +24,12 @@ data "aws_subnet" "matching_private_b" {
 module "eks" {
   source = "../modules/eks"
 
-  cluster_name      = "T3-Wagu-Matching-EKS"
-  vpc_id            = data.aws_vpc.matching.id
+  cluster_name    = "T3-Wagu-Matching-EKS"
+  vpc_id          = data.aws_vpc.matching.id
   subnet_ids      = [data.aws_subnet.matching_private_a.id, data.aws_subnet.matching_private_b.id]
   node_group_name = "matching-node-group"
-  instance_types    = ["t3.medium"]
-  desired_size      = 3
-  max_size          = 4
-  min_size          = 1
+  instance_types  = ["t3.large"]
+  desired_size    = 4
+  max_size        = 5
+  min_size        = 1
 }

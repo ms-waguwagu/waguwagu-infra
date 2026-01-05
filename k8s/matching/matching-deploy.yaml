@@ -13,21 +13,41 @@ spec:
       labels:
         app: matching
     spec:
+      terminationGracePeriodSeconds: 60
+
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: eks.amazonaws.com/nodegroup
+                    operator: In
+                    values:
+                      - matching-node-group
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: matching
+          effect: NoSchedule
       containers:
         - name: matching
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:558410f-3 #
-
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 300
 
           resources:
             requests:
-              cpu: "100m"
-              memory: "256Mi"
+              cpu: "500m" #100m
+              memory: "512Mi" #256Mi
             limits:
-              cpu: "500m"
-              memory: "512Mi"
+              cpu: "1000m" #500m
+              memory: "1Gi" #512Mi
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
 
           env:
             - name: PORT
@@ -62,11 +82,11 @@ spec:
                 secretKeyRef:
                   name: matching-secret
                   key: DB_PORT
-            - name: DB_USER
+            - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: matching-secret
-                  key: DB_USER
+                  key: DB_USERNAME
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -84,7 +104,7 @@ spec:
 
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수
-              value: "https://k8s-agonessy-agonesal-3401dfe366-a0554574c75db365.elb.ap-northeast-2.amazonaws.com"
+              value: "https://k8s-agonessy-agonesal-b8684b995e-735e703acd49fe45.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH

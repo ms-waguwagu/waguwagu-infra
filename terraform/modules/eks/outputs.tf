@@ -32,3 +32,11 @@ output "vpc_id" {
   description = "VPC ID where the cluster is deployed"
   value       = aws_eks_cluster.this.vpc_config[0].vpc_id
 }
+
+/*
+#karpenter 관련 추가한 거 때문에 terraform plan이 안되서 주석처리 함 
+output "managed_node_role_arn" {
+  description = "IAM role ARN for EKS managed node group instances"
+  value       = aws_iam_role.node.arn
+}
+*/

@@ -81,5 +81,3 @@ spec:
             - name: tls
               secret:
                 secretName: game-wss-tls
-
-      

@@ -97,7 +97,7 @@ resource "helm_release" "external_secrets" {
   chart      = "external-secrets"
   namespace  = kubernetes_namespace.external_secrets.metadata[0].name
 
- # ✅ Helm이 리소스 Ready 될 때까지 기다리게
+  # ✅ Helm이 리소스 Ready 될 때까지 기다리게
   wait            = true
   wait_for_jobs   = true
   timeout         = 600 # seconds (10분 정도)

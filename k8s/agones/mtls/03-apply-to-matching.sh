@@ -1,7 +1,9 @@
 #!/bin/bash
 set -e
 
-MATCHING_CTX=arn:aws:eks:ap-northeast-2:061039804626:cluster/T3-Wagu-Matching-EKS
+MATCHING_CTX=arn:aws:eks:ap-northeast-2:269397878198:cluster/T3-Wagu-Matching-EKS
+#061039804626
+
 WORKDIR=/tmp/agones-mtls
 
 kubectl config use-context $MATCHING_CTX

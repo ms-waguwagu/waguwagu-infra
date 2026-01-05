@@ -100,6 +100,8 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-A"
+        - Key: karpenter.sh/discovery
+          Value: !Sub "${ProjectPrefix}-Matching-EKS"
 
   MatchingPrivateSubnetB:
     Type: AWS::EC2::Subnet
@@ -111,6 +113,8 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Matching-Private-Subnet-B"
+        - Key: karpenter.sh/discovery
+          Value: !Sub "${ProjectPrefix}-Matching-EKS"
 
   ############################################################
   # Matching Private DB Subnets
@@ -315,6 +319,8 @@ Resources:
           Value: shared
         - Key: kubernetes.io/role/internal-elb
           Value: 1
+        - Key: karpenter.sh/discovery
+          Value: !Sub "${ProjectPrefix}-Game-EKS"
 
   GamePrivateSubnetB:
     Type: AWS::EC2::Subnet
@@ -330,6 +336,8 @@ Resources:
           Value: shared
         - Key: kubernetes.io/role/internal-elb
           Value: 1
+        - Key: karpenter.sh/discovery
+          Value: !Sub "${ProjectPrefix}-Game-EKS"
 
   ############################################################
   # Game Private DB Subnets

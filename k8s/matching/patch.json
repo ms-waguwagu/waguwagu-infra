@@ -1,0 +1,16 @@
+﻿[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/-",
+    "value": {
+      "name": "cpu-burn",
+      "image": "polinux/stress",
+      "command": ["stress"],
+      "args": ["--cpu","1","--timeout","3600"],
+      "resources": {
+        "requests": {"cpu":"100m","memory":"64Mi"},
+        "limits": {"cpu":"1000m","memory":"128Mi"}
+      }
+    }
+  }
+]
