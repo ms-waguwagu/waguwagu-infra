@@ -81,6 +81,12 @@ spec:
             - name: MAX_PLAYERS
               value: "5"
 
+            - name: GAME_RESULT_QUEUE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: GAME_RESULT_QUEUE_URL
+
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수
               value: "https://k8s-agonessy-agonesal-835f53d8a6-af42d652bdcf74a3.elb.ap-northeast-2.amazonaws.com"
