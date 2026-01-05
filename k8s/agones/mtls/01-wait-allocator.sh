@@ -1,8 +1,7 @@
 #!/bin/bash
 set -e
 
-GAME_CTX=arn:aws:eks:ap-northeast-2:269397878198:cluster/T3-Wagu-Game-EKS
-#061039804626
+GAME_CTX=arn:aws:eks:ap-northeast-2:061039804626:cluster/T3-Wagu-Game-EKS
 kubectl config use-context $GAME_CTX
 
 echo "▶ allocator Service 대기"

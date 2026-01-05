@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-MATCHING_CTX=arn:aws:eks:ap-northeast-2:269397878198:cluster/T3-Wagu-Matching-EKS
-#061039804626
+MATCHING_CTX=arn:aws:eks:ap-northeast-2:061039804626:cluster/T3-Wagu-Matching-EKS
+
 
 WORKDIR=/tmp/agones-mtls
 

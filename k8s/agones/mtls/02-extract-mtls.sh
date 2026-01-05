@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-GAME_CTX=arn:aws:eks:ap-northeast-2:269397878198:cluster/T3-Wagu-Game-EKS
+GAME_CTX=arn:aws:eks:ap-northeast-2:061039804626:cluster/T3-Wagu-Game-EKS
 WORKDIR=/tmp/agones-mtls
-#061039804626
+
 mkdir -p $WORKDIR
 cd $WORKDIR
 

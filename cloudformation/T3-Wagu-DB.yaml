@@ -66,14 +66,14 @@ Resources:
       AllocatedStorage: !Ref AllocatedStorage
       StorageType: gp2
       StorageEncrypted: true
-
+      BackupRetentionPeriod: 0 #Snapshot막기. 정말 스냅샷 생기지 않는건지, 이따가 cloudformation으롤 돌려보고 확인 되면 main에다가 push해서 올려라
       MasterUsername: !Ref MasterUsername
       # Managed by AWS Secrets Manager
       ManageMasterUserPassword: true
 
       PubliclyAccessible: false
       MultiAZ: true
-      PreferredBackupWindow: 02:00-03:00
+      #PreferredBackupWindow: 02:00-03:00
 
       VPCSecurityGroups:
         - !Ref WaguProdDBSecurityGroup
