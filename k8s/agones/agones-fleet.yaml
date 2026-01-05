@@ -53,7 +53,7 @@ spec:
           terminationGracePeriodSeconds: 30
           containers:
             - name: game-server
-              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:428f20f-2
+              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:428f20f-1
               imagePullPolicy: Always
               ports:
                 - containerPort: 3001
