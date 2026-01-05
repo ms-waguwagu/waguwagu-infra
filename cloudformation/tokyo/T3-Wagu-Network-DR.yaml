@@ -533,3 +533,13 @@ Outputs:
     Value: !Join [",", [!Ref GamePrivateDbSubnetA, !Ref GamePrivateDbSubnetB]]
     Export:
       Name: !Sub "${ProjectPrefix}-Game-Private-Db-Subnet-Ids"
+
+  MatchingNatGatewayId:
+    Value: !Ref MatchingNatGateway
+    Export:
+      Name: !Sub "${ProjectPrefix}-Matching-NAT-GW-Id"
+
+  GameNatGatewayId:
+    Value: !Ref GameNatGateway
+    Export:
+      Name: !Sub "${ProjectPrefix}-Game-NAT-GW-Id"
