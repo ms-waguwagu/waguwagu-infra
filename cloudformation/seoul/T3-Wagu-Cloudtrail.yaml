@@ -10,7 +10,7 @@ Parameters:
 
   CloudTrailBucketName:
     Type: String
-    Default: t3-wagu-cloudtrail-logs-seoul
+    Default: t3-wagu-cloudtrail-logs
     Description: "Existing S3 bucket name for CloudTrail logs"
 
 Resources:
