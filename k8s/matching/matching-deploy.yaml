@@ -82,11 +82,11 @@ spec:
                 secretKeyRef:
                   name: matching-secret
                   key: DB_PORT
-            - name: DB_USERNAME
+            - name: DB_USER
               valueFrom:
                 secretKeyRef:
                   name: matching-secret
-                  key: DB_USERNAME
+                  key: DB_USER
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -104,7 +104,7 @@ spec:
 
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수
-              value: "https://k8s-agonessy-agonesal-b8684b995e-735e703acd49fe45.elb.ap-northeast-2.amazonaws.com"
+              value: "https://k8s-agonessy-agonesal-3d1691d878-81afa6e53aec0e9f.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH

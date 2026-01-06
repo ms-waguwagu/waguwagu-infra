@@ -1,22 +1,23 @@
 apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
-  name: matching-ondemand
+  name: game-ondemand
 spec:
   template:
     metadata:
       labels:
-        workload: matching
+        workload: game
+        role: game
     spec:
       taints:
         - key: dedicated
-          value: matching
+          value: game
           effect: NoSchedule
 
       nodeClassRef:
         group: karpenter.k8s.aws
         kind: EC2NodeClass
-        name: matching-default
+        name: game-default
 
       requirements:
         - key: karpenter.sh/capacity-type
