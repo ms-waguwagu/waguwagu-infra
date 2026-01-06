@@ -86,7 +86,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: matching-secret
-                  key: DB_USERNAME
+                  key: DB_USER
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -101,6 +101,11 @@ spec:
               value: "normal"
             - name: MAX_PLAYERS
               value: "5"
+            - name: GAME_RESULT_QUEUE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: GAME_RESULT_QUEUE_URL
 
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수

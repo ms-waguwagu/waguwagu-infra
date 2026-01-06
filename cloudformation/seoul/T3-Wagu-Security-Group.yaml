@@ -214,7 +214,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          SourceSecurityGroupId: !Ref MatchingEksNodeSG
+          CidrIp: 10.0.0.0/16
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: 443
@@ -236,7 +236,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          SourceSecurityGroupId: !Ref GameEksNodeSG
+          CidrIp: 10.1.0.0/16
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: 443
@@ -300,8 +300,4 @@ Outputs:
   GameSqsVpceSGId:
     Value: !Ref GameSqsVpceSG
     Export:
-<<<<<<< HEAD:cloudformation/seoul/T3-Wagu-Security-Group.yaml
       Name: !Sub "${ProjectPrefix}-GameSqsVpceSGId"
-=======
-      Name: !Sub "${ProjectPrefix}-GameSqsVpceSGId"
->>>>>>> feature/karpenter:cloudformation/T3-Wagu-Security-Group.yaml
