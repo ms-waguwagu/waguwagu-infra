@@ -20,7 +20,7 @@ data "aws_iam_policy_document" "loki_assume" {
     }
 
     condition {
-      test     = "StringEquals"
+      test = "StringEquals"
       variable = "${replace(
         data.aws_eks_cluster.this.identity[0].oidc[0].issuer,
         "https://",
@@ -30,7 +30,7 @@ data "aws_iam_policy_document" "loki_assume" {
     }
 
     condition {
-      test     = "StringEquals"
+      test = "StringEquals"
       variable = "${replace(
         data.aws_eks_cluster.this.identity[0].oidc[0].issuer,
         "https://",

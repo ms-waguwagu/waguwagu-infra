@@ -43,17 +43,22 @@ spec:
           nodeSelector:
             role: game
 
-          # Taint 허용 (Terraform에서 설정한 Taint)
+          # 기존(Terraform) 게임 노드와 신규(Karpenter) 게임 노드에서 모두 실행 가능하도록 설정
           tolerations:
             - key: "game-only"
               operator: "Equal"
               value: "true"
               effect: "NoSchedule"
+            # karpenter settings
+            - key: "dedicated"
+              operator: "Equal"
+              value: "game"
+              effect: "NoSchedule"
 
           terminationGracePeriodSeconds: 30
           containers:
             - name: game-server
-              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:428f20f-1
+              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:latest
               imagePullPolicy: Always
               ports:
                 - containerPort: 3001
@@ -93,5 +98,3 @@ spec:
             - name: tls
               secret:
                 secretName: game-wss-tls
-
-      

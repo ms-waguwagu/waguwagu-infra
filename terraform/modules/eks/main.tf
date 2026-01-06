@@ -2,10 +2,17 @@ resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   version  = var.cluster_version
   role_arn = aws_iam_role.cluster.arn
-
+  # bootstrap_self_managed_addons = false
   vpc_config {
     subnet_ids = var.subnet_ids
   }
+
+/*
+  # karpenter관련 추가한 거 때문에 terraform plan이 안되서 주석처리 함
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP" 
+  }
+*/
 
   depends_on = [
     aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
@@ -229,4 +236,13 @@ resource "aws_ec2_tag" "cluster_sg_name" {
   resource_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
   key         = "Name"
   value       = "${var.cluster_name}-Cluster-SG"
+}
+
+#eks karpeter관련 tag 추가함
+resource "aws_ec2_tag" "karpenter_discovery_cluster_sg" {
+  resource_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  key         = "karpenter.sh/discovery"
+  value       = var.cluster_name
+
+  depends_on = [aws_eks_cluster.this]
 }

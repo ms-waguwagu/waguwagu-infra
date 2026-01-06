@@ -20,7 +20,7 @@ data "aws_eks_cluster_auth" "this" {
 }
 
 provider "kubernetes" {
-  host                   = data.aws_eks_cluster.this.endpoint
+  host = data.aws_eks_cluster.this.endpoint
   cluster_ca_certificate = base64decode(
     data.aws_eks_cluster.this.certificate_authority[0].data
   )
@@ -28,13 +28,13 @@ provider "kubernetes" {
 }
 
 provider "helm" {
-  kubernetes  {
-    host                   = data.aws_eks_cluster.this.endpoint
+  kubernetes {
+    host = data.aws_eks_cluster.this.endpoint
     cluster_ca_certificate = base64decode(
       data.aws_eks_cluster.this.certificate_authority[0].data
     )
     token = data.aws_eks_cluster_auth.this.token
   }
-  repository_cache     = "${path.module}/.helm-cache"
+  repository_cache       = "${path.module}/.helm-cache"
   repository_config_path = "${path.module}/.helm-cache/repositories.yaml"
 }

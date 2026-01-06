@@ -1,0 +1,41 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: game-ondemand
+spec:
+  template:
+    metadata:
+      labels:
+        role: game  # Agones Fleet에서 사용하는 nodeSelector와 일치시킴
+    spec:
+      taints:
+        - key: dedicated
+          value: game
+          effect: NoSchedule
+
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: game-default
+
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: karpenter.k8s.aws/instance-family
+          operator: In
+          values: ["t3"]
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values: ["large", "xlarge"]
+
+  limits:
+    cpu: "20"   # 원래 설정인 20으로 복구
+    memory: "80Gi"
+
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 60s

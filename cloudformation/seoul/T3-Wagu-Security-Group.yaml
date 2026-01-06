@@ -64,6 +64,14 @@ Resources:
           Value: !Sub "${ProjectPrefix}-Matching-EKS-Node-SG"
         - Key: Project
           Value: WAGUWAGU
+        - Key: karpenter.sh/discovery 
+          Value: !Sub "${ProjectPrefix}-Matching-EKS"
+  MatchingEksNodeSGSelfIngress:
+    Type: AWS::EC2::SecurityGroupIngress 
+    Properties:
+      GroupId: !Ref MatchingEksNodeSG
+      IpProtocol: -1 
+      SourceSecurityGroupId: !Ref MatchingEksNodeSG
 
   ############################################################
   # 4) Game EKS Node SG
@@ -108,6 +116,14 @@ Resources:
           Value: !Sub "${ProjectPrefix}-Game-EKS-Node-SG"
         - Key: Project
           Value: WAGUWAGU
+        - Key: karpenter.sh/discovery 
+          Value: !Sub "${ProjectPrefix}-Game-EKS"
+  GameEksNodeSGSelfIngress:
+    Type: AWS::EC2::SecurityGroupIngress 
+    Properties:
+      GroupId: !Ref GameEksNodeSG
+      IpProtocol: -1 
+      SourceSecurityGroupId: !Ref GameEksNodeSG
 
   ############################################################
   # 5) Valkey (Redis) SG
@@ -284,4 +300,8 @@ Outputs:
   GameSqsVpceSGId:
     Value: !Ref GameSqsVpceSG
     Export:
+<<<<<<< HEAD:cloudformation/seoul/T3-Wagu-Security-Group.yaml
       Name: !Sub "${ProjectPrefix}-GameSqsVpceSGId"
+=======
+      Name: !Sub "${ProjectPrefix}-GameSqsVpceSGId"
+>>>>>>> feature/karpenter:cloudformation/T3-Wagu-Security-Group.yaml

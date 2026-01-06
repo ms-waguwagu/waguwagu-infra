@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inflate-test
+  namespace: game
+spec:
+  replicas: 0 
+  selector:
+    matchLabels:
+      app: inflate-test
+  template:
+    metadata:
+      labels:
+        app: inflate-test
+        role: game  # 게임 클러스터용 카펜터 NodePool의 label과 일치
+    spec:
+      nodeSelector:
+        role: game
+      tolerations:
+        - key: dedicated
+          value: game
+          operator: "Equal"
+          effect: "NoSchedule"
+      containers:
+        - name: inflate
+          image: public.ecr.aws/eks-distro/kubernetes/pause:3.7
+          resources:
+            requests:
+              cpu: "1" # pod당 CPU 1개를 점유하여 노드 공간 채움
+              memory: "1Gi"

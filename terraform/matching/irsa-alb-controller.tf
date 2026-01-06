@@ -28,7 +28,7 @@ resource "aws_iam_role" "alb_controller_role" {
 }
 
 resource "aws_iam_policy" "alb_controller_policy" {
-  name   = "${module.eks.cluster_name}-alb-controller-policy"
+  name = "${module.eks.cluster_name}-alb-controller-policy"
   # modules/eks/iam_policy.json 재사용 (matching 폴더 기준 상대경로)
   policy = file("${path.root}/../modules/eks/iam_policy.json")
 }

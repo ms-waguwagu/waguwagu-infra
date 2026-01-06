@@ -42,53 +42,53 @@ resource "helm_release" "loki" {
   chart      = "loki"
   version    = "6.46.0"
 
-values = [
-  file("${path.module}/configs/loki-values.yaml"),
-  yamlencode({
-    deploymentMode = "SingleBinary"
+  values = [
+    file("${path.module}/configs/loki-values.yaml"),
+    yamlencode({
+      deploymentMode = "SingleBinary"
 
-    singleBinary = {
-      replicas = 1
-    }
+      singleBinary = {
+        replicas = 1
+      }
 
-    read = {
-      enabled  = false
-      replicas = 0
-    }
+      read = {
+        enabled  = false
+        replicas = 0
+      }
 
-    write = {
-      enabled  = false
-      replicas = 0
-    }
+      write = {
+        enabled  = false
+        replicas = 0
+      }
 
-    backend = {
-      enabled  = false
-      replicas = 0
-    }
+      backend = {
+        enabled  = false
+        replicas = 0
+      }
 
-    persistence = {
-      enabled = false
-    }
+      persistence = {
+        enabled = false
+      }
 
-    loki = {
-      storage = {
-        bucketNames = {
-          chunks = data.aws_cloudformation_export.loki_bucket_name.value
-          ruler  = data.aws_cloudformation_export.loki_bucket_name.value
-          admin  = data.aws_cloudformation_export.loki_bucket_name.value
+      loki = {
+        storage = {
+          bucketNames = {
+            chunks = data.aws_cloudformation_export.loki_bucket_name.value
+            ruler  = data.aws_cloudformation_export.loki_bucket_name.value
+            admin  = data.aws_cloudformation_export.loki_bucket_name.value
+          }
         }
       }
-    }
 
-    serviceAccount = {
-      create = true
-      name   = "loki"
-      annotations = {
-        "eks.amazonaws.com/role-arn" = aws_iam_role.loki.arn
+      serviceAccount = {
+        create = true
+        name   = "loki"
+        annotations = {
+          "eks.amazonaws.com/role-arn" = aws_iam_role.loki.arn
+        }
       }
-    }
-  })
-]
+    })
+  ]
 
 
 
