@@ -186,8 +186,49 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
-        - Key: Project
-          Value: WAGUWAGU
+  ############################################################
+  # 8) Matching SQS VPC Endpoint SG
+  ############################################################
+  MatchingSqsVpceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Matching SQS VPC Endpoint
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref MatchingEksNodeSG
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Matching-SQS-VPCE-SG"
+
+  ############################################################
+  # 9) Game SQS VPC Endpoint SG
+  ############################################################
+  GameSqsVpceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Game SQS VPC Endpoint
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref GameEksNodeSG
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Game-SQS-VPCE-SG"
 
 Outputs:
   MatchingAlbSGId:
@@ -224,3 +265,23 @@ Outputs:
     Value: !Ref JenkinsGameSG
     Export:
       Name: !Sub "${ProjectPrefix}-JenkinsGameSGId"
+
+  MatchingSqsVpceSGId:
+    Value: !Ref MatchingSqsVpceSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingSqsVpceSGId"
+
+  GameSqsVpceSGId:
+    Value: !Ref GameSqsVpceSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-GameSqsVpceSGId"
+
+  MatchingSqsVpceSGId:
+    Value: !Ref MatchingSqsVpceSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-MatchingSqsVpceSGId"
+
+  GameSqsVpceSGId:
+    Value: !Ref GameSqsVpceSG
+    Export:
+      Name: !Sub "${ProjectPrefix}-GameSqsVpceSGId"

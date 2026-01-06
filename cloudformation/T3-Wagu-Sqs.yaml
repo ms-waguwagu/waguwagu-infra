@@ -1,54 +1,89 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Wagu Game Result SQS Stack
+Description: Wagu Game Result SQS with Multi-VPC Endpoints (Using Imports)
 
 Parameters:
   Environment:
     Type: String
-    AllowedValues:
-      - dev
-      - prod
+    AllowedValues: [dev, prod]
     Default: prod
 
 Resources:
+  ### DLQ
   GameResultDLQ:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub wagu-${Environment}-game-result-dlq
-      MessageRetentionPeriod: 1209600 # 14 days
+      MessageRetentionPeriod: 1209600
 
+  ### Main Queue
   GameResultQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub wagu-${Environment}-game-result-queue
       VisibilityTimeout: 60
-      MessageRetentionPeriod: 345600 # 4 days
+      MessageRetentionPeriod: 345600
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt GameResultDLQ.Arn
         maxReceiveCount: 5
 
+  ### SQS VPC Endpoint for Game VPC (Send Only)
+  GameSqsVpce:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.sqs
+      VpcEndpointType: Interface
+      SubnetIds: !Split [",", !ImportValue T3-Wagu-Game-Private-Subnet-Ids]
+      SecurityGroupIds: 
+        - !ImportValue T3-Wagu-GameSqsVpceSGId
+      PrivateDnsEnabled: true
+
+  ### SQS VPC Endpoint for Matching VPC (Receive/Delete Only)
+  MatchingSqsVpce:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.sqs
+      VpcEndpointType: Interface
+      SubnetIds: !Split [",", !ImportValue T3-Wagu-Matching-Private-Subnet-Ids]
+      SecurityGroupIds: 
+        - !ImportValue T3-Wagu-MatchingSqsVpceSGId
+      PrivateDnsEnabled: true
+
+  ### Queue Policy (Multi-VPCE Restricted)
   GameResultQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
-      Queues:
-        - !Ref GameResultQueue
+      Queues: [!Ref GameResultQueue]
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+          - Sid: AllowGameClusterSend
+            Effect: Allow
+            Principal: "*"
             Action: sqs:SendMessage
             Resource: !GetAtt GameResultQueue.Arn
+            Condition:
+              StringEquals:
+                aws:SourceVpce: !Ref GameSqsVpce
+          
+          - Sid: AllowMatchingClusterConsume
+            Effect: Allow
+            Principal: "*"
+            Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Resource: !GetAtt GameResultQueue.Arn
+            Condition:
+              StringEquals:
+                aws:SourceVpce: !Ref MatchingSqsVpce
 
 Outputs:
   GameResultQueueUrl:
-    Description: Game Result Queue URL
     Value: !Ref GameResultQueue
-    Export:
-      Name: !Sub Wagu-${Environment}-GameResult-Queue-Url
-
+    Export: { Name: !Sub "Wagu-${Environment}-GameResult-Queue-Url" }
+  
   GameResultQueueArn:
-    Description: Game Result Queue ARN
     Value: !GetAtt GameResultQueue.Arn
-    Export:
-      Name: !Sub Wagu-${Environment}-GameResult-Queue-Arn
+    Export: { Name: !Sub "Wagu-${Environment}-GameResult-Queue-Arn" }

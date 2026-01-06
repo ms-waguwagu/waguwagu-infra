@@ -143,5 +143,4 @@ Outputs:
     Description: CloudTrail Logs S3 Bucket ARN
     Value: !GetAtt CloudTrailBucket.Arn
     Export:
-      Name: t3-wagu-cloudtrail-bucket-arn
-
+      Name: t3-wagu-cloudtrail-bucket-arn-tmp
