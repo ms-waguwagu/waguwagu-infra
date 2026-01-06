@@ -66,7 +66,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: matching-secret
-                  key: DB_USER
+                  key: DB_USERNAME
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -84,7 +84,7 @@ spec:
 
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수
-              value: "https://k8s-agonessy-agonesal-835f53d8a6-af42d652bdcf74a3.elb.ap-northeast-2.amazonaws.com"
+              value: "https://k8s-agonessy-agonesal-b8684b995e-735e703acd49fe45.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH
@@ -96,11 +96,14 @@ spec:
               value: Z03982962I5Q4PS90RDSK
               
             - name: AWS_REGION
+            # value: us-east-1
               value: ap-northeast-2
-            - name: AWS_XRAY_DAEMON_ADDRESS
+            - name: HOST_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+            - name: AWS_XRAY_DAEMON_ADDRESS
+              value: "$(HOST_IP):2000"
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
