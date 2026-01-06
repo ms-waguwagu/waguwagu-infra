@@ -1,0 +1,98 @@
+apiVersion: "agones.dev/v1"
+kind: Fleet
+metadata:
+  name: waguwagu-fleet
+  namespace: game
+  labels:
+    app: waguwagu
+spec:
+  # Ready 또는 Allocated 상태로 유지할 GameServer 개수
+  replicas: 5
+
+  # 스케줄링 전략. 기본값은 Packed.
+  scheduling: Packed
+
+  # 템플릿 변경 시 교체 전략. 운영 안정성은 RollingUpdate가 기본값.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+
+  template:
+    metadata:
+      labels:
+        app: waguwagu
+        mode: room-per-pod
+    spec:
+      ports:        
+        - name: game
+          portPolicy: Dynamic
+          containerPort: 3001
+          protocol: TCP # UDP/TCPUDP 가능
+      health:
+        disabled: false
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        failureThreshold: 3
+      sdkServer:
+        logLevel: Info
+      template:
+        spec:
+          # 퍼블릭 노드그룹에만 스케줄링 (Terraform에서 설정한 라벨)
+          nodeSelector:
+            role: game
+
+          # 기존(Terraform) 게임 노드와 신규(Karpenter) 게임 노드에서 모두 실행 가능하도록 설정
+          tolerations:
+            - key: "game-only"
+              operator: "Equal"
+              value: "true"
+              effect: "NoSchedule"
+            # karpenter settings
+            - key: "dedicated"
+              operator: "Equal"
+              value: "game"
+              effect: "NoSchedule"
+
+          terminationGracePeriodSeconds: 30
+          containers:
+            - name: game-server
+              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:latest
+              imagePullPolicy: Always
+              ports:
+                - containerPort: 3001
+              env:
+                - name: PORT
+                  value: "3001"
+                - name: GAME_PORT
+                  value: "3001"
+                - name: TLS_CERT_PATH
+                  value: /etc/tls/tls.crt
+                - name: TLS_KEY_PATH
+                  value: /etc/tls/tls.key
+                - name: AWS_REGION
+                  value: "ap-northeast-2"
+                - name: HOST_IP
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: status.hostIP
+                - name: AWS_XRAY_DAEMON_ADDRESS
+                  value: "$(HOST_IP):2000"
+              volumeMounts:
+                - name: tls
+                  mountPath: /etc/tls
+                  readOnly: true
+
+              resources:
+                requests:
+                  cpu: "250m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "1Gi"
+
+          volumes:
+            - name: tls
+              secret:
+                secretName: game-wss-tls
