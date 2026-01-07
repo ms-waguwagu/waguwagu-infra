@@ -32,7 +32,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: matching
-          image: 269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:de362a6-2
+          image: 269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:81d08db-5
           imagePullPolicy: Always
           ports:
             - containerPort: 300
