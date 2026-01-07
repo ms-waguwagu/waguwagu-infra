@@ -7,12 +7,6 @@ resource "aws_eks_cluster" "this" {
     subnet_ids = var.subnet_ids
   }
 
-/*
-  # karpenter°ü·Ã Ãß°¡ÇÑ °Å ¶§¹®¿¡ terraform planÀÌ ¾ÈµÇ¼­ ÁÖ¼®Ã³¸® ÇÔ
-  access_config {
-    authentication_mode = "API_AND_CONFIG_MAP" 
-  }
-*/
 
   depends_on = [
     aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
@@ -238,7 +232,7 @@ resource "aws_ec2_tag" "cluster_sg_name" {
   value       = "${var.cluster_name}-Cluster-SG"
 }
 
-#eks karpeter°ü·Ã tag Ãß°¡ÇÔ
+#eks karpeterê´€ë ¨ tag ì¶”ê°€í•¨
 resource "aws_ec2_tag" "karpenter_discovery_cluster_sg" {
   resource_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
   key         = "karpenter.sh/discovery"
