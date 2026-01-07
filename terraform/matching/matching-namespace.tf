@@ -1,3 +1,4 @@
+/*
 resource "kubernetes_namespace" "matching" {
   metadata {
     name = "matching"
@@ -5,4 +6,4 @@ resource "kubernetes_namespace" "matching" {
 
   depends_on = [module.eks]
 }
-
+*/
