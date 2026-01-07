@@ -84,10 +84,12 @@ Resources:
       State: ENABLED
       EventPattern:
         source:
-          - aws.s3
+          - aws.cloudtrail
         detail-type:
           - "AWS API Call via CloudTrail"
         detail:
+          eventSource:
+            - s3.amazonaws.com
           eventName:
             - DeleteBucket
             - PutBucketPolicy
@@ -95,10 +97,112 @@ Resources:
       Targets:
         - Arn: !Ref T3WaguSecurityAlertsTopic
           Id: SnsS3
+
+  T3WaguSecurityAlertsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref T3WaguSecurityAlertsTopic
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref T3WaguSecurityAlertsTopic
+
+  # ============================================================
+  # RDS Critical Changes
+  # ============================================================
+  RdsCriticalRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: t3-wagu-rds-critical
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.rds
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventSource:
+            - rds.amazonaws.com
+          eventName:
+            - DeleteDBInstance
+            - DeleteDBCluster
+            - ModifyDBInstance
+            - DeleteDBSnapshot
+      Targets:
+        - Arn: !Ref T3WaguSecurityAlertsTopic
+          Id: SnsRds
           Input: |
             {
-              "alert": "CRITICAL S3 CHANGE DETECTED",
-              "service": "S3"
+              "alert": "CRITICAL RDS CHANGE DETECTED",
+              "service": "RDS",
+              "severity": "CRITICAL"
+            }
+
+  # ============================================================
+  # ElastiCache / Valkey Critical Changes
+  # ============================================================
+  ElastiCacheCriticalRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: t3-wagu-elasticache-critical
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.elasticache
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventSource:
+            - elasticache.amazonaws.com
+          eventName:
+            - DeleteCacheCluster
+            - DeleteReplicationGroup
+            - ModifyReplicationGroup
+            - DeleteSnapshot
+      Targets:
+        - Arn: !Ref T3WaguSecurityAlertsTopic
+          Id: SnsElastiCache
+          Input: |
+            {
+              "alert": "CRITICAL VALKEY / ELASTICACHE CHANGE DETECTED",
+              "service": "Valkey / ElastiCache",
+              "severity": "CRITICAL"
+            }
+
+  # ============================================================
+  # ECR Critical Changes
+  # ============================================================
+  EcrCriticalRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: t3-wagu-ecr-critical
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.ecr
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventSource:
+            - ecr.amazonaws.com
+          eventName:
+            - DeleteRepository
+            - BatchDeleteImage
+            - PutLifecyclePolicy
+            - DeleteLifecyclePolicy
+      Targets:
+        - Arn: !Ref T3WaguSecurityAlertsTopic
+          Id: SnsEcr
+          Input: |
+            {
+              "alert": "CRITICAL ECR CHANGE DETECTED",
+              "service": "ECR",
+              "severity": "CRITICAL"
             }
 
   # ============================================================
@@ -190,7 +294,6 @@ Resources:
               "service": "CloudFormation",
               "severity": "CRITICAL"
             }
-
 
 Outputs:
   CloudTrailName:
