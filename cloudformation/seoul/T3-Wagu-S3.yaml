@@ -8,7 +8,7 @@ Resources:
   WaguWaguBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "t3-wagu-s3-bucket-seoul"
+      BucketName: !Sub "t3-wagu-s3-bucket"
       AccessControl: Private
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -23,7 +23,7 @@ Resources:
               SSEAlgorithm: AES256
       Tags:
         - Key: Name
-          Value: t3-wagu-s3-bucket-seoul
+          Value: t3-wagu-s3-bucket
 
   # ============================================================
   # Loki Log Storage S3 Bucket (NEW)
@@ -31,7 +31,7 @@ Resources:
   LokiLogsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "t3-wagu-loki-logs-seoul"
+      BucketName: !Sub "t3-wagu-loki-logs"
       AccessControl: Private
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -46,7 +46,7 @@ Resources:
               SSEAlgorithm: AES256
       Tags:
         - Key: Name
-          Value: t3-wagu-loki-logs-seoul
+          Value: t3-wagu-loki-logs
         - Key: Purpose
           Value: loki-log-storage
 
@@ -56,7 +56,7 @@ Resources:
   CloudTrailBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "t3-wagu-cloudtrail-logs-seoul"
+      BucketName: !Sub "t3-wagu-cloudtrail-logs"
       AccessControl: Private
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
