@@ -1,6 +1,5 @@
 variable "region" {
   type    = string
-  default = "ap-northeast-2"
 }
 
 # EKS 모듈 outputs 사용

@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "WaguWagu Project: DR S3 Bucket Setup"
+
+Resources:
+  # ============================================================
+  # Common WaguWagu S3 Bucket
+  # ============================================================
+  WaguWaguBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "t3-wagu-dr-s3-bucket"
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Name
+          Value: t3-wagu-dr-s3-bucket
+
+  # ============================================================
+  # Loki Log Storage S3 Bucket (NEW)
+  # ============================================================
+  LokiLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "t3-wagu-dr-loki-logs"
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Name
+          Value: t3-wagu-dr-loki-logs
+        - Key: Purpose
+          Value: loki-log-storage
+
+Outputs:
+  # ============================================================
+  # Common Bucket Outputs
+  # ============================================================
+  BucketName:
+    Description: WaguWagu S3 DR Bucket Name
+    Value: !Ref WaguWaguBucket
+    Export:
+      Name: t3-wagu-dr-s3-bucket
+
+  BucketArn:
+    Description: WaguWagu S3 DR Bucket ARN
+    Value: !GetAtt WaguWaguBucket.Arn
+    Export:
+      Name: t3-wagu-dr-s3-bucket-arn
+
+  # ============================================================
+  # Loki Bucket Outputs (NEW)
+  # ============================================================
+  LokiBucketName:
+    Description: Loki Logs S3 DR Bucket Name
+    Value: !Ref LokiLogsBucket
+    Export:
+      Name: t3-wagu-dr-loki-s3-bucket
+
+  LokiBucketArn:
+    Description: Loki Logs S3 DR Bucket ARN
+    Value: !GetAtt LokiLogsBucket.Arn
+    Export:
+      Name: t3-wagu-dr-loki-s3-bucket-arn

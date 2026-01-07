@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Wagu Aurora MySQL Global Database - Primary (Seoul, NO SNAPSHOT)
+
+Parameters:
+  DBName:
+    Type: String
+    Default: wagudb
+
+  DBInstanceClass:
+    Type: String
+    Default: db.r6g.large
+
+  MasterUsername:
+    Type: String
+    Default: wagu_admin
+    AllowedPattern: "^[a-zA-Z0-9_]+$"
+
+  MasterPassword:
+    Type: String
+    NoEcho: true
+
+  GlobalClusterIdentifier:
+    Type: String
+    Default: wagu-global-db
+
+
+  AppVpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+
+Resources:
+  # 1) Security Group
+  WaguAuroraSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow MySQL from App VPC
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: !Ref AppVpcCidr
+
+  # 2) Subnet Group
+  WaguAuroraSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Aurora subnet group
+      SubnetIds: !Split
+        - ","
+        - !ImportValue T3-Wagu-Matching-Private-Db-Subnet-Ids
+
+  # 3) Cluster Parameter Group
+  WaguAuroraParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Family: aurora-mysql8.0
+      Description: Aurora MySQL parameter group
+      Parameters:
+        character_set_server: utf8mb4
+        collation_server: utf8mb4_unicode_ci
+        time_zone: Asia/Seoul
+
+  # 4) Global Database
+  WaguGlobalDatabase:
+    Type: AWS::RDS::GlobalCluster
+    Properties:
+      GlobalClusterIdentifier: !Ref GlobalClusterIdentifier
+      Engine: aurora-mysql
+
+  # 5) Primary Cluster (Seoul)
+  WaguAuroraCluster:
+    Type: AWS::RDS::DBCluster
+    DependsOn:
+      - WaguGlobalDatabase
+
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+
+    Properties:
+      DBClusterIdentifier: wagu-prod-aurora-cluster
+      Engine: aurora-mysql
+
+      DatabaseName: !Ref DBName
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterPassword
+
+      DBSubnetGroupName: !Ref WaguAuroraSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref WaguAuroraSecurityGroup
+      DBClusterParameterGroupName: !Ref WaguAuroraParameterGroup
+
+      GlobalClusterIdentifier: !Ref GlobalClusterIdentifier
+
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+
+  # 6) Writer Instance
+  WaguAuroraWriter:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBInstanceIdentifier: wagu-prod-aurora-writer
+      DBClusterIdentifier: !Ref WaguAuroraCluster
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: aurora-mysql
+      PubliclyAccessible: false
+
+Outputs:
+  WriterEndpoint:
+    Value: !GetAtt WaguAuroraCluster.Endpoint.Address
+
+  ReaderEndpoint:
+    Value: !GetAtt WaguAuroraCluster.ReadEndpoint.Address

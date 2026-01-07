@@ -4,7 +4,7 @@ metadata:
   name: matching-deploy
   namespace: matching
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: matching
@@ -32,7 +32,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: matching
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:428f20f-1
           imagePullPolicy: Always
           ports:
             - containerPort: 300
@@ -101,10 +101,15 @@ spec:
               value: "normal"
             - name: MAX_PLAYERS
               value: "5"
+            - name: GAME_RESULT_QUEUE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: matching-secret
+                  key: GAME_RESULT_QUEUE_URL
 
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수
-              value: "https://k8s-agonessy-agonesal-3d1691d878-81afa6e53aec0e9f.elb.ap-northeast-2.amazonaws.com"
+              value: "https://k8s-agonessy-agonesal-4064b27fe1-4d2a06d9342e20af.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH
@@ -114,6 +119,26 @@ spec:
 
             - name: ROUTE53_HOSTED_ZONE_ID
               value: Z03982962I5Q4PS90RDSK
+              
+            - name: AWS_REGION
+            # value: us-east-1
+              value: ap-northeast-2
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: AWS_XRAY_DAEMON_ADDRESS
+              value: "$(HOST_IP):2000"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_SECRET_ACCESS_KEY
 
           readinessProbe:
             httpGet:

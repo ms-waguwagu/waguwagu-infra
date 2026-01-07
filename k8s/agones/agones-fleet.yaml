@@ -7,7 +7,7 @@ metadata:
     app: waguwagu
 spec:
   # Ready 또는 Allocated 상태로 유지할 GameServer 개수
-  replicas: 5
+  replicas: 10
 
   # 스케줄링 전략. 기본값은 Packed.
   scheduling: Packed
@@ -56,6 +56,7 @@ spec:
               effect: "NoSchedule"
 
           terminationGracePeriodSeconds: 30
+          serviceAccountName: game-server-sa
           containers:
             - name: game-server
               image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:latest
@@ -79,6 +80,13 @@ spec:
                       fieldPath: status.hostIP
                 - name: AWS_XRAY_DAEMON_ADDRESS
                   value: "$(HOST_IP):2000"
+                - name: GAME_RESULT_QUEUE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: game-secret
+                      key: GAME_RESULT_QUEUE_URL
+                # - name: MATCHING_INTERNAL_URL
+                #   value: http://k8s-matching-matching-f15df60d3c-1330291703.ap-northeast-2.elb.amazonaws.com/internal/game-finished
               volumeMounts:
                 - name: tls
                   mountPath: /etc/tls

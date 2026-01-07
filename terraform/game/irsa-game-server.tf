@@ -55,4 +55,6 @@ resource "kubernetes_service_account" "game_sa" {
       "eks.amazonaws.com/role-arn" = aws_iam_role.game_server_role.arn
     }
   }
+
+  depends_on = [kubernetes_namespace.game]
 }

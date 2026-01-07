@@ -1,0 +1,202 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  WaguWagu CloudTrail + Critical Change Alerting
+  (Uses EXISTING S3 bucket, no bucket creation)
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Description: "Email address to receive security alerts"
+
+  CloudTrailBucketName:
+    Type: String
+    Default: t3-wagu-cloudtrail-logs
+    Description: "Existing S3 bucket name for CloudTrail logs"
+
+Resources:
+  # ============================================================
+  # CloudTrail
+  # ============================================================
+  T3WaguCloudTrail:
+    Type: AWS::CloudTrail::Trail
+    Properties:
+      TrailName: T3-Wagu-CloudTrail
+      S3BucketName: !Ref CloudTrailBucketName
+      IsMultiRegionTrail: true
+      IncludeGlobalServiceEvents: true
+      EnableLogFileValidation: true
+      IsLogging: true
+      EventSelectors:
+        - ReadWriteType: All
+          IncludeManagementEvents: true
+
+  # ============================================================
+  # SNS Topic
+  # ============================================================
+  T3WaguSecurityAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: t3-wagu-seoul-critical-alerts-DR
+
+  T3WaguSecurityAlertsEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref T3WaguSecurityAlertsTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  # ============================================================
+  # VPC Critical Changes
+  # ============================================================
+  VpcCriticalRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: t3-wagu-vpc-critical
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventName:
+            - DeleteVpc
+            - DeleteSubnet
+            - DeleteRouteTable
+            - DeleteInternetGateway
+            - DeleteNatGateway
+      Targets:
+        - Arn: !Ref T3WaguSecurityAlertsTopic
+          Id: SnsVpc
+          Input: |
+            {
+              "alert": "CRITICAL VPC CHANGE DETECTED",
+              "service": "EC2/VPC"
+            }
+
+  # ============================================================
+  # S3 Critical Changes
+  # ============================================================
+  S3CriticalRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: t3-wagu-s3-critical
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventName:
+            - DeleteBucket
+            - PutBucketPolicy
+            - PutBucketAcl
+      Targets:
+        - Arn: !Ref T3WaguSecurityAlertsTopic
+          Id: SnsS3
+          Input: |
+            {
+              "alert": "CRITICAL S3 CHANGE DETECTED",
+              "service": "S3"
+            }
+
+  # ============================================================
+  # IAM Critical Changes
+  # ============================================================
+  IamCriticalRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: t3-wagu-iam-critical
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.iam
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventName:
+            - CreateAccessKey
+            - DeleteAccessKey
+            - AttachRolePolicy
+            - PutUserPolicy
+      Targets:
+        - Arn: !Ref T3WaguSecurityAlertsTopic
+          Id: SnsIam
+          Input: |
+            {
+              "alert": "CRITICAL IAM CHANGE DETECTED",
+              "service": "IAM"
+            }
+
+  # ============================================================
+  # Jenkins EC2 Deletion Detection
+  # ============================================================
+  JenkinsEc2CriticalRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: T3-Wagu-Jenkins
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.ec2
+          - aws.autoscaling
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventName:
+            - TerminateInstances
+            - DeleteAutoScalingGroup
+            - DeleteLaunchTemplate
+            - DeleteLaunchTemplateVersion
+      Targets:
+        - Arn: !Ref T3WaguSecurityAlertsTopic
+          Id: SnsJenkinsEC2
+          Input: |
+            {
+              "alert": "JENKINS EC2 DELETION DETECTED",
+              "service": "Jenkins / EC2"
+            }
+
+  # ============================================================
+  # Jenkins CloudFormation Stack Deletion Detection (STRICT)
+  # ============================================================
+  JenkinsStackDeletionRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: t3-wagu-jenkins-stack-delete
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.cloudformation
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventSource:
+            - cloudformation.amazonaws.com
+          eventName:
+            - DeleteStack
+            - UpdateStack
+          requestParameters:
+            stackName:
+              - "T3-Wagu-Jenkins"
+      Targets:
+        - Arn: !Ref T3WaguSecurityAlertsTopic
+          Id: SnsJenkinsStack
+          Input: |
+            {
+              "alert": " JENKINS STACK DELETE / UPDATE DETECTED ",
+              "stack": "T3-Wagu-Jenkins",
+              "service": "CloudFormation",
+              "severity": "CRITICAL"
+            }
+
+
+Outputs:
+  CloudTrailName:
+    Description: CloudTrail Name
+    Value: !Ref T3WaguCloudTrail
+
+  AlertsTopicArn:
+    Description: SNS Topic ARN
+    Value: !Ref T3WaguSecurityAlertsTopic

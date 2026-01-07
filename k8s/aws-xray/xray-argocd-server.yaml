@@ -1,21 +1,20 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: matching
+  name: aws-xray
   namespace: argocd
 spec:
   project: default
-
   source:
     repoURL: https://github.com/ms-waguwagu/waguwagu-infra
     targetRevision: main
-    path: k8s/matching
-
+    path: k8s/aws-xray
   destination:
     server: https://kubernetes.default.svc
-    namespace: matching
-
+    namespace: aws-xray
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

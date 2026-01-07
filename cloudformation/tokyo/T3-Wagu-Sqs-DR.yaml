@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Wagu Game Result SQS Stack
+Description: Wagu Game Result SQS Stack (DR - Tokyo)
 
 Parameters:
   Environment:
@@ -13,13 +13,13 @@ Resources:
   GameResultDLQ:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: !Sub wagu-${Environment}-game-result-dlq
+      QueueName: !Sub wagu-${Environment}-dr-game-result-dlq
       MessageRetentionPeriod: 1209600 # 14 days
 
   GameResultQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: !Sub wagu-${Environment}-game-result-queue
+      QueueName: !Sub wagu-${Environment}-dr-game-result-queue
       VisibilityTimeout: 60
       MessageRetentionPeriod: 345600 # 4 days
       RedrivePolicy:
@@ -42,13 +42,13 @@ Resources:
 
 Outputs:
   GameResultQueueUrl:
-    Description: Game Result Queue URL
+    Description: DR Game Result Queue URL
     Value: !Ref GameResultQueue
     Export:
-      Name: !Sub Wagu-${Environment}-GameResult-Queue-Url
+      Name: !Sub Wagu-${Environment}-DR-GameResult-Queue-Url
 
   GameResultQueueArn:
-    Description: Game Result Queue ARN
+    Description: DR Game Result Queue ARN
     Value: !GetAtt GameResultQueue.Arn
     Export:
-      Name: !Sub Wagu-${Environment}-GameResult-Queue-Arn
+      Name: !Sub Wagu-${Environment}-DR-GameResult-Queue-Arn

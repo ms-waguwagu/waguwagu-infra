@@ -1,0 +1,192 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: WAGUWAGU DR CloudWatch (VPC FlowLogs + Aurora Alarms + Dashboard)
+
+Parameters:
+  ProjectPrefix:
+    Type: String
+    Default: T3-Wagu-DR
+
+Resources:
+  ############################################################
+  # CloudWatch Log Group - VPC Flow Logs
+  ############################################################
+  VPCFlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/vpc/${ProjectPrefix}-flowlogs"
+      RetentionInDays: 14
+
+  ############################################################
+  # IAM Role for VPC Flow Logs
+  ############################################################
+  VPCFlowLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: VPCFlowLogsPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  ############################################################
+  # Matching VPC Flow Log
+  ############################################################
+  MatchingVPCFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceType: VPC
+      ResourceId: !ImportValue T3-Wagu-DR-Matching-VPC-Id
+      TrafficType: ALL
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: !Ref VPCFlowLogGroup
+      DeliverLogsPermissionArn: !GetAtt VPCFlowLogRole.Arn
+
+  ############################################################
+  # Game VPC Flow Log
+  ############################################################
+  GameVPCFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceType: VPC
+      ResourceId: !ImportValue T3-Wagu-DR-Game-VPC-Id
+      TrafficType: ALL
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: !Ref VPCFlowLogGroup
+      DeliverLogsPermissionArn: !GetAtt VPCFlowLogRole.Arn
+
+  ############################################################
+  # Aurora DR - Replica Lag Alarm
+  ############################################################
+  AuroraReplicaLagAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: Wagu-DR-Aurora-ReplicaLag
+      Namespace: AWS/RDS
+      MetricName: AuroraReplicaLag
+      Dimensions:
+        - Name: DBClusterIdentifier
+          Value: wagu-dr-aurora-cluster
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  ############################################################
+  # Aurora DR - CPU High Alarm
+  ############################################################
+  AuroraCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: Wagu-DR-Aurora-CPU-High
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBClusterIdentifier
+          Value: wagu-dr-aurora-cluster
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  ############################################################
+  # CloudWatch Dashboard (NAT Metrics + Flow Logs Query)
+  ############################################################
+  WaguDRDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "${ProjectPrefix}-Dashboard"
+      DashboardBody:
+        Fn::Sub:
+          - |
+            {
+              "widgets": [
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "Aurora DR - CPU Utilization",
+                    "region": "${AWS::Region}",
+                    "metrics": [
+                      ["AWS/RDS","CPUUtilization","DBClusterIdentifier","wagu-dr-aurora-cluster"]
+                    ],
+                    "stat": "Average",
+                    "period": 300
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 0,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "Aurora DR - Replica Lag",
+                    "region": "${AWS::Region}",
+                    "metrics": [
+                      ["AWS/RDS","AuroraReplicaLag","DBClusterIdentifier","wagu-dr-aurora-cluster"]
+                    ],
+                    "stat": "Average",
+                    "period": 60
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 6,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "Matching NAT Gateway - Traffic",
+                    "region": "${AWS::Region}",
+                    "metrics": [
+                      ["AWS/NATGateway","BytesInFromSource","NatGatewayId","${MatchingNatId}"],
+                      ["AWS/NATGateway","BytesOutToDestination","NatGatewayId","${MatchingNatId}"]
+                    ],
+                    "stat": "Sum",
+                    "period": 300
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 6,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "Game NAT Gateway - Traffic",
+                    "region": "${AWS::Region}",
+                    "metrics": [
+                      ["AWS/NATGateway","BytesInFromSource","NatGatewayId","${GameNatId}"],
+                      ["AWS/NATGateway","BytesOutToDestination","NatGatewayId","${GameNatId}"]
+                    ],
+                    "stat": "Sum",
+                    "period": 300
+                  }
+                }
+              ]
+            }
+          - MatchingNatId: !ImportValue T3-Wagu-DR-Matching-NAT-GW-Id
+            GameNatId: !ImportValue T3-Wagu-DR-Game-NAT-GW-Id
+
+Outputs:
+  CloudWatchLogGroup:
+    Value: !Ref VPCFlowLogGroup
