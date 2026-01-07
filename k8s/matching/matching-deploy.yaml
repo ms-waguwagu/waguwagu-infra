@@ -32,7 +32,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: matching
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:428f20f-1
+          image: 269397878198.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:428f20f-1
           imagePullPolicy: Always
           ports:
             - containerPort: 300
@@ -119,9 +119,9 @@ spec:
 
             - name: ROUTE53_HOSTED_ZONE_ID
               value: Z03982962I5Q4PS90RDSK
-              
+
             - name: AWS_REGION
-            # value: us-east-1
+              # value: us-east-1
               value: ap-northeast-2
             - name: HOST_IP
               valueFrom:
