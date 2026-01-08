@@ -1,5 +1,4 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Jenkins Server for WAGUWAGU (Webhook only / Source=cicdfrontend, InfraTagPush=feature/webhook handled by Jenkinsfile)
 
 Parameters:
   ProjectPrefix:
@@ -37,11 +36,11 @@ Parameters:
     Type: String
     Default: "https://github.com/ms-waguwagu/waguwagu-server.git"
 
-  # ✅ 트리거/체크아웃 브랜치: cicdfrontend
+  # 트리거
   SourceBranch:
     Type: String
-    Default: "cicdfrontend"
-    Description: "Push to this branch triggers jobs via GitHub webhook (frontend/matching/game)."
+    Default: "main"
+    Description: "Push to this branch triggers jobs via GitHub  (frontend/matching/game)."
 
   ############################################################
   # Frontend deploy target
@@ -62,7 +61,7 @@ Parameters:
     Description: "Key inside SecretString JSON for CloudFront Distribution ID"
 
   ############################################################
-  # GitHub PAT (Secrets Manager) - Jenkinsfiles read it to push waguwagu-infra/feature-webhook
+  # GitHub PAT (Secrets Manager)
   ############################################################
   GitHubPatSecretName:
     Type: String
