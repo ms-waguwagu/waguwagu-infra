@@ -1,5 +1,4 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Jenkins Server for WAGUWAGU (Matching/Game 분리) - Webhook Trigger (no Poll SCM) - IPv4 prefer + safe plugin install
 
 Parameters:
   ProjectPrefix:
@@ -9,11 +8,13 @@ Parameters:
   InstanceType:
     Type: String
     Default: t3.medium
-    AllowedValues: [t3.medium, t3.large, t3.xlarge]
+    AllowedValues:
+      - t3.medium
 
   LatestAmiId:
     Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
     Default: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
+    Description: Latest Amazon Linux 2023 AMI ID from SSM Parameter Store
 
   JenkinsAdminUser:
     Type: String
@@ -23,33 +24,57 @@ Parameters:
     Type: String
     NoEcho: true
 
+  JenkinsBaseUrl:
+    Type: String
+    Default: ""
+    Description: "Optional. Example: http://your-domain-or-ip:8080 (leave blank if not used)"
+
+  ############################################################
+  # Source repo (where Jenkinsfiles live)
+  ############################################################
+  WaguwaguServerRepoUrl:
+    Type: String
+    Default: "https://github.com/ms-waguwagu/waguwagu-server.git"
+
+  # 트리거
+  SourceBranch:
+    Type: String
+    Default: "main"
+    Description: "Push to this branch triggers jobs via GitHub  (frontend/matching/game)."
+
+  ############################################################
+  # Frontend deploy target
+  ############################################################
   FrontendBucketName:
     Type: String
-    Default: t3-wagu-s3-bucket
+    Default: "t3-wagu-s3-bucket"
+    Description: "Must match frontend/Jenkinsfile S3_BUCKET"
 
   CloudFrontSecretName:
     Type: String
     Default: "T3-Wagu-Secrets"
+    Description: "Secrets Manager secret name that contains CloudFront Distribution ID"
+
   CloudFrontSecretKey:
     Type: String
     Default: "CLOUDFRONT_DISTRIBUTION_ID"
+    Description: "Key inside SecretString JSON for CloudFront Distribution ID"
 
+  ############################################################
+  # GitHub PAT (Secrets Manager)
+  ############################################################
   GitHubPatSecretName:
     Type: String
     Default: "T3-Wagu-Secrets"
+
   GitHubPatSecretKey:
     Type: String
     Default: "GITHUB_PAT"
 
-  AppRepoUrl:
-    Type: String
-    Default: "https://github.com/ms-waguwagu/waguwagu-server.git"
-
-  AppRepoBranch:
-    Type: String
-    Default: "*/main"
-
 Resources:
+  ############################################################
+  # IAM Role for Jenkins EC2
+  ############################################################
   JenkinsRole:
     Type: AWS::IAM::Role
     Properties:
@@ -57,12 +82,16 @@ Resources:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
-            Principal: { Service: ec2.amazonaws.com }
+            Principal:
+              Service: ec2.amazonaws.com
             Action: sts:AssumeRole
+
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+
       Policies:
+        # Frontend S3 sync
         - PolicyName: JenkinsFrontendS3Policy
           PolicyDocument:
             Version: "2012-10-17"
@@ -72,6 +101,7 @@ Resources:
                   - s3:ListBucket
                   - s3:GetBucketLocation
                 Resource: !Sub "arn:aws:s3:::${FrontendBucketName}"
+
               - Effect: Allow
                 Action:
                   - s3:GetObject
@@ -79,7 +109,8 @@ Resources:
                   - s3:DeleteObject
                 Resource: !Sub "arn:aws:s3:::${FrontendBucketName}/*"
 
-        - PolicyName: JenkinsSecretsAndCloudFrontPolicy
+        # CloudFront invalidation + Secrets Manager read (CloudFront ID / GitHub PAT)
+        - PolicyName: JenkinsCloudFrontAndSecretsPolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -87,9 +118,14 @@ Resources:
                 Action:
                   - secretsmanager:GetSecretValue
                   - secretsmanager:DescribeSecret
-                Resource:
-                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${CloudFrontSecretName}-*"
-                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${GitHubPatSecretName}-*"
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${CloudFrontSecretName}-*"
+
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${GitHubPatSecretName}-*"
+
               - Effect: Allow
                 Action:
                   - cloudfront:CreateInvalidation
@@ -99,72 +135,121 @@ Resources:
   JenkinsInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      Roles: [!Ref JenkinsRole]
+      Roles:
+        - !Ref JenkinsRole
 
+  ############################################################
+  # Security Group (Matching Jenkins) - allow GitHub webhook inbound 8080
+  ############################################################
+  JenkinsMatchingSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Jenkins(Matching+Frontend) - GitHub Webhook inbound 8080 only
+      VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
+
+      SecurityGroupIngress:
+        # GitHub Webhook IP ranges (example)
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 140.82.112.0/20
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 192.30.252.0/22
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Matching-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # Security Group (Game Jenkins) - allow GitHub webhook inbound 8080
+  ############################################################
+  JenkinsGameSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Jenkins(Game) - GitHub Webhook inbound 8080 only
+      VpcId: !ImportValue T3-Wagu-Game-VPC-Id
+
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 140.82.112.0/20
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 192.30.252.0/22
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Game-SG"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # Jenkins EC2 Instance (Matching + Frontend)
+  ############################################################
   JenkinsInstanceMatching:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
       ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref JenkinsInstanceProfile
+
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           GroupSet:
-            - Fn::ImportValue: !Sub "${ProjectPrefix}-JenkinsMatchingSGId"
-          SubnetId:
-            Fn::Select:
-              - 0
-              - Fn::Split:
-                  - ","
-                  - Fn::ImportValue: !Sub "${ProjectPrefix}-Matching-Public-Subnet-Ids"
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Matching"
+            - !Ref JenkinsMatchingSG
+          SubnetId: !Select
+            - 0
+            - !Split
+              - ","
+              - !ImportValue T3-Wagu-Matching-Public-Subnet-Ids
 
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          set -euxo pipefail
+          set -euo pipefail
           exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
-
-          # Prefer IPv4 (Java + curl/wget)
-          export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv4Stack=true -Djava.net.preferIPv4Addresses=true"
-          export AWS_REGION="${AWS::Region}"
-
-          retry() {
-            local n=0
-            local max=6
-            local delay=10
-            until [ $n -ge $max ]; do
-              "$@" && return 0
-              n=$((n+1))
-              echo "[WARN] retry $n/$max failed: $*"
-              sleep $delay
-            done
-            return 1
-          }
 
           dnf update -y
           dnf install -y docker git wget unzip jq awscli java-17-amazon-corretto
-
           systemctl enable --now docker
 
-          # kubectl (force IPv4)
-          KVER="$(curl -4 -fsSL https://dl.k8s.io/release/stable.txt)"
-          curl -4 -fsSL "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
+          # kubectl (optional)
+          KVER="$(wget -qO- https://dl.k8s.io/release/stable.txt)"
+          wget -q "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -O /usr/local/bin/kubectl
           chmod +x /usr/local/bin/kubectl
 
           # Jenkins repo
-          curl -4 -fsSL -o /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+          wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
           rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
           dnf clean all
           dnf makecache -y
           dnf install -y jenkins
 
           usermod -aG docker jenkins
+          install -d -o jenkins -g jenkins -m 755 /var/lib/jenkins/plugins
 
-          mkdir -p /var/lib/jenkins/plugins
+          # Force official Jenkins update center (avoid weird mirrors)
+          cat >/etc/profile.d/jenkins-uc.sh <<'EOF'
+          export JENKINS_UC=https://updates.jenkins.io
+          export JENKINS_UC_DOWNLOAD=https://updates.jenkins.io/download
+          EOF
+
+          # plugins (minimum set for Pipeline + GitHub webhook)
           cat >/tmp/plugins.txt <<'EOF'
           workflow-aggregator
           git
@@ -176,33 +261,25 @@ Resources:
           EOF
 
           export JENKINS_HOME=/var/lib/jenkins
+          source /etc/profile.d/jenkins-uc.sh || true
 
-          PLUGINS_OK=0
+          # Install plugins with timeout (do not block forever)
           if command -v jenkins-plugin-cli >/dev/null 2>&1; then
             PLUGINS="$(tr '\n' ' ' </tmp/plugins.txt)"
-            if retry jenkins-plugin-cli --plugins "$PLUGINS" --plugin-dir /var/lib/jenkins/plugins; then
-              PLUGINS_OK=1
-            fi
+            timeout 900 jenkins-plugin-cli --plugins "$PLUGINS" --plugin-dir /var/lib/jenkins/plugins || true
           else
             PIM_VER="2.13.2"
-            retry curl -4 -fsSL -o /tmp/jenkins-plugin-manager.jar \
-              "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/$PIM_VER/jenkins-plugin-manager-$PIM_VER.jar" || true
-
-            if [ -f /tmp/jenkins-plugin-manager.jar ]; then
-              # update-center를 공식으로 고정(미러로 튀는 것 완화)
-              if retry java -jar /tmp/jenkins-plugin-manager.jar \
-                --war /usr/share/java/jenkins.war \
-                --plugin-file /tmp/plugins.txt \
-                --plugin-download-directory /var/lib/jenkins/plugins \
-                --jenkins-update-center https://updates.jenkins.io/update-center.actual.json; then
-                PLUGINS_OK=1
-              fi
-            fi
+            wget -q -O /tmp/jenkins-plugin-manager.jar \
+              "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/$PIM_VER/jenkins-plugin-manager-$PIM_VER.jar"
+            timeout 900 java -jar /tmp/jenkins-plugin-manager.jar \
+              --war /usr/share/java/jenkins.war \
+              --plugin-file /tmp/plugins.txt \
+              --plugin-download-directory /var/lib/jenkins/plugins || true
           fi
 
           chown -R jenkins:jenkins /var/lib/jenkins
 
-          # Disable setup wizard
+          # disable setup wizard
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
             sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
@@ -212,15 +289,32 @@ Resources:
 
           systemctl daemon-reload
           systemctl enable jenkins
+          systemctl stop jenkins || true
 
+          # store PAT in file (optional)
+          set +x
+          PAT="$(aws secretsmanager get-secret-value \
+            --secret-id ${GitHubPatSecretName} \
+            --query SecretString \
+            --output text \
+            --region ${AWS::Region} | jq -r '.${GitHubPatSecretKey}')"
+          install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files
+          printf '%s' "$PAT" > /var/lib/jenkins/secret-files/github_pat
+          chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat
+          chmod 600 /var/lib/jenkins/secret-files/github_pat
+          unset PAT
+          set -x
+
+          # init scripts
           mkdir -p /var/lib/jenkins/init.groovy.d
 
-          # Always: admin/security (core만 사용)
+          # (1) Security + base url
           cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
           import jenkins.model.*
           import hudson.security.*
+          import jenkins.model.JenkinsLocationConfiguration
 
-          def j = Jenkins.get()
+          def instance = Jenkins.get()
 
           def adminUser = "${JenkinsAdminUser}"
           def adminPass = "${JenkinsAdminPassword}"
@@ -229,192 +323,139 @@ Resources:
           if (realm.getUser(adminUser) == null) {
             realm.createAccount(adminUser, adminPass)
           }
-          j.setSecurityRealm(realm)
+          instance.setSecurityRealm(realm)
 
           def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
           strategy.setAllowAnonymousRead(false)
-          j.setAuthorizationStrategy(strategy)
+          instance.setAuthorizationStrategy(strategy)
+
+          def baseUrl = "${JenkinsBaseUrl}"
+          if (baseUrl != null && baseUrl.trim().length() > 0) {
+            def loc = JenkinsLocationConfiguration.get()
+            loc.setUrl(baseUrl.trim())
+            loc.save()
+          }
+
+          instance.save()
+          GROOVY
+
+          # (2) Create jobs: webhook only, branch pinned to */${SourceBranch}
+          cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
+          import jenkins.model.*
+          import org.jenkinsci.plugins.workflow.job.WorkflowJob
+          import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
+          import hudson.plugins.git.*
+          import com.cloudbees.jenkins.GitHubPushTrigger
+
+          def j = Jenkins.get()
+          def repoUrl = "${WaguwaguServerRepoUrl}"
+          def srcBranch = "*/${SourceBranch}"
+
+          def ensurePipelineJob = { String jobName, String scriptPath ->
+            def existing = j.getItem(jobName)
+            WorkflowJob job
+
+            if (existing == null) {
+              println("[CREATE] Job: " + jobName + " branch=" + srcBranch)
+              job = j.createProject(WorkflowJob, jobName)
+            } else {
+              println("[UPDATE] Job: " + jobName + " branch=" + srcBranch)
+              job = (WorkflowJob) existing
+            }
+
+            def remote = new UserRemoteConfig(repoUrl, null, null, null)
+            def scm = new GitSCM(
+              [remote],
+              [new BranchSpec(srcBranch)],
+              false,
+              [],
+              null,
+              null,
+              []
+            )
+
+            def defn = new CpsScmFlowDefinition(scm, scriptPath)
+            defn.setLightweight(true)
+            job.definition = defn
+
+            // remove any old triggers; add GitHub webhook trigger only
+            try { job.getTriggers().clear() } catch (Throwable t) { println("[WARN] clear triggers failed: " + t) }
+            try { job.addTrigger(new GitHubPushTrigger()) } catch (Throwable t) { println("[WARN] add GitHubPushTrigger failed: " + t) }
+
+            job.save()
+          }
+
+          ensurePipelineJob("frontend-ci", "frontend/Jenkinsfile")
+          ensurePipelineJob("matching-ci", "matching-server/Jenkinsfile")
 
           j.save()
           GROOVY
 
-          # Only if plugins installed: credentials + jobs
-          if [ "$PLUGINS_OK" -eq 1 ]; then
-            set +e
-            SECRET_JSON="$(aws secretsmanager get-secret-value \
-              --secret-id ${GitHubPatSecretName} \
-              --query SecretString \
-              --output text \
-              --region $AWS_REGION 2>/dev/null)"
-            rc=$?
-            set -e
-
-            if [ $rc -eq 0 ] && [ -n "$SECRET_JSON" ]; then
-              PAT="$(printf '%s' "$SECRET_JSON" | jq -r '.${GitHubPatSecretKey}' | tr -d '\r\n')"
-            else
-              PAT=""
-              echo "[WARN] SecretsManager read failed. Skip PAT credential init."
-            fi
-
-            if [ -n "$PAT" ]; then
-              install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files
-              printf '%s' "$PAT" > /var/lib/jenkins/secret-files/github_pat
-              chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat
-              chmod 600 /var/lib/jenkins/secret-files/github_pat
-            fi
-
-            cat >/var/lib/jenkins/init.groovy.d/03-credentials.groovy <<'GROOVY'
-            import jenkins.model.*
-            import com.cloudbees.plugins.credentials.*
-            import com.cloudbees.plugins.credentials.domains.*
-            import com.cloudbees.plugins.credentials.common.StandardCredentials
-            import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl
-            import hudson.util.Secret
-
-            def id = "github-pat-infra-push"
-            def desc = "GitHub PAT for pushing waguwagu-infra manifests"
-            def f = new File("/var/lib/jenkins/secret-files/github_pat")
-
-            if (!f.exists()) {
-              println("[WARN] github_pat file not found. Skip creating credential.")
-              return
-            }
-            def pat = f.text.trim()
-            if (!pat) {
-              println("[WARN] github_pat is empty. Skip creating credential.")
-              return
-            }
-
-            def j = Jenkins.get()
-            def provider = j.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0]
-            def store = provider.getStore()
-            def domain = Domain.global()
-
-            def existing = com.cloudbees.plugins.credentials.CredentialsProvider.lookupCredentials(
-              StandardCredentials.class, j, null, null
-            ).find { it.id == id }
-
-            if (existing != null) {
-              store.removeCredentials(domain, existing)
-            }
-
-            def c = new StringCredentialsImpl(CredentialsScope.GLOBAL, id, desc, Secret.fromString(pat))
-            store.addCredentials(domain, c)
-            println("[OK] Created/Updated credential: " + id)
-            GROOVY
-
-            cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
-            import jenkins.model.*
-            import org.jenkinsci.plugins.workflow.job.WorkflowJob
-            import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
-            import hudson.plugins.git.*
-            import com.cloudbees.jenkins.GitHubPushTrigger
-
-            def j = Jenkins.get()
-            def repoUrl = "${AppRepoUrl}"
-            def branchSpec = "${AppRepoBranch}"
-
-            def upsertPipelineJob = { String jobName, String scriptPath ->
-              WorkflowJob job = j.getItem(jobName) as WorkflowJob
-              if (job == null) {
-                println("[CREATE] Job: " + jobName)
-                job = j.createProject(WorkflowJob, jobName)
-              } else {
-                println("[UPDATE] Job: " + jobName)
-              }
-
-              def remote = new UserRemoteConfig(repoUrl, null, null, null)
-              def scm = new GitSCM(
-                [remote],
-                [new BranchSpec(branchSpec)],
-                false,
-                [],
-                null,
-                null,
-                []
-              )
-
-              job.definition = new CpsScmFlowDefinition(scm, scriptPath)
-
-              job.getTriggers().clear()
-              job.addTrigger(new GitHubPushTrigger())
-
-              job.save()
-            }
-
-            upsertPipelineJob("matching-ci", "matching-server/Jenkinsfile")
-            upsertPipelineJob("frontend-ci", "frontend/Jenkinsfile")
-            j.save()
-            GROOVY
-          else
-            echo "[WARN] Plugin install failed. Jenkins will start, but jobs/credentials auto-init skipped."
-          fi
-
           chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
 
-          systemctl restart jenkins
+          systemctl start jenkins
           systemctl status jenkins --no-pager || true
+          ss -lntp | grep 8080 || true
 
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Matching"
+        - Key: Project
+          Value: WAGUWAGU
+
+  ############################################################
+  # Jenkins EC2 Instance (Game)
+  ############################################################
   JenkinsInstanceGame:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
       ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref JenkinsInstanceProfile
+
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           GroupSet:
-            - Fn::ImportValue: !Sub "${ProjectPrefix}-JenkinsGameSGId"
-          SubnetId:
-            Fn::Select:
-              - 0
-              - Fn::Split:
-                  - ","
-                  - Fn::ImportValue: !Sub "${ProjectPrefix}-Game-Public-Subnet-Ids"
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectPrefix}-Jenkins-Game"
+            - !Ref JenkinsGameSG
+          SubnetId: !Select
+            - 0
+            - !Split
+              - ","
+              - !ImportValue T3-Wagu-Game-Public-Subnet-Ids
 
-      # Game도 동일 로직 사용(잡 이름만 game-ci로)
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          set -euxo pipefail
+          set -euo pipefail
           exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
-
-          export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv4Stack=true -Djava.net.preferIPv4Addresses=true"
-          export AWS_REGION="${AWS::Region}"
-
-          retry() {
-            local n=0
-            local max=6
-            local delay=10
-            until [ $n -ge $max ]; do
-              "$@" && return 0
-              n=$((n+1))
-              echo "[WARN] retry $n/$max failed: $*"
-              sleep $delay
-            done
-            return 1
-          }
 
           dnf update -y
           dnf install -y docker git wget unzip jq awscli java-17-amazon-corretto
           systemctl enable --now docker
 
-          KVER="$(curl -4 -fsSL https://dl.k8s.io/release/stable.txt)"
-          curl -4 -fsSL "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
+          # kubectl (optional)
+          KVER="$(wget -qO- https://dl.k8s.io/release/stable.txt)"
+          wget -q "https://dl.k8s.io/release/$KVER/bin/linux/amd64/kubectl" -O /usr/local/bin/kubectl
           chmod +x /usr/local/bin/kubectl
 
-          curl -4 -fsSL -o /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+          # Jenkins repo
+          wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
           rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
           dnf clean all
           dnf makecache -y
           dnf install -y jenkins
-          usermod -aG docker jenkins
 
-          mkdir -p /var/lib/jenkins/plugins
+          usermod -aG docker jenkins
+          install -d -o jenkins -g jenkins -m 755 /var/lib/jenkins/plugins
+
+          # Force official Jenkins update center
+          cat >/etc/profile.d/jenkins-uc.sh <<'EOF'
+          export JENKINS_UC=https://updates.jenkins.io
+          export JENKINS_UC_DOWNLOAD=https://updates.jenkins.io/download
+          EOF
+
+          # plugins
           cat >/tmp/plugins.txt <<'EOF'
           workflow-aggregator
           git
@@ -426,30 +467,24 @@ Resources:
           EOF
 
           export JENKINS_HOME=/var/lib/jenkins
+          source /etc/profile.d/jenkins-uc.sh || true
 
-          PLUGINS_OK=0
           if command -v jenkins-plugin-cli >/dev/null 2>&1; then
             PLUGINS="$(tr '\n' ' ' </tmp/plugins.txt)"
-            if retry jenkins-plugin-cli --plugins "$PLUGINS" --plugin-dir /var/lib/jenkins/plugins; then
-              PLUGINS_OK=1
-            fi
+            timeout 900 jenkins-plugin-cli --plugins "$PLUGINS" --plugin-dir /var/lib/jenkins/plugins || true
           else
             PIM_VER="2.13.2"
-            retry curl -4 -fsSL -o /tmp/jenkins-plugin-manager.jar \
-              "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/$PIM_VER/jenkins-plugin-manager-$PIM_VER.jar" || true
-            if [ -f /tmp/jenkins-plugin-manager.jar ]; then
-              if retry java -jar /tmp/jenkins-plugin-manager.jar \
-                --war /usr/share/java/jenkins.war \
-                --plugin-file /tmp/plugins.txt \
-                --plugin-download-directory /var/lib/jenkins/plugins \
-                --jenkins-update-center https://updates.jenkins.io/update-center.actual.json; then
-                PLUGINS_OK=1
-              fi
-            fi
+            wget -q -O /tmp/jenkins-plugin-manager.jar \
+              "https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/$PIM_VER/jenkins-plugin-manager-$PIM_VER.jar"
+            timeout 900 java -jar /tmp/jenkins-plugin-manager.jar \
+              --war /usr/share/java/jenkins.war \
+              --plugin-file /tmp/plugins.txt \
+              --plugin-download-directory /var/lib/jenkins/plugins || true
           fi
 
           chown -R jenkins:jenkins /var/lib/jenkins
 
+          # disable setup wizard
           mkdir -p /etc/sysconfig
           if [ -f /etc/sysconfig/jenkins ] && grep -q '^JENKINS_JAVA_OPTIONS=' /etc/sysconfig/jenkins; then
             sed -i 's#^JENKINS_JAVA_OPTIONS="\(.*\)"#JENKINS_JAVA_OPTIONS="\1 -Djenkins.install.runSetupWizard=false"#' /etc/sysconfig/jenkins
@@ -459,14 +494,31 @@ Resources:
 
           systemctl daemon-reload
           systemctl enable jenkins
+          systemctl stop jenkins || true
 
+          # store PAT (optional)
+          set +x
+          PAT="$(aws secretsmanager get-secret-value \
+            --secret-id ${GitHubPatSecretName} \
+            --query SecretString \
+            --output text \
+            --region ${AWS::Region} | jq -r '.${GitHubPatSecretKey}')"
+          install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files
+          printf '%s' "$PAT" > /var/lib/jenkins/secret-files/github_pat
+          chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat
+          chmod 600 /var/lib/jenkins/secret-files/github_pat
+          unset PAT
+          set -x
+
+          # init scripts
           mkdir -p /var/lib/jenkins/init.groovy.d
 
           cat >/var/lib/jenkins/init.groovy.d/01-security.groovy <<'GROOVY'
           import jenkins.model.*
           import hudson.security.*
+          import jenkins.model.JenkinsLocationConfiguration
 
-          def j = Jenkins.get()
+          def instance = Jenkins.get()
 
           def adminUser = "${JenkinsAdminUser}"
           def adminPass = "${JenkinsAdminPassword}"
@@ -475,114 +527,103 @@ Resources:
           if (realm.getUser(adminUser) == null) {
             realm.createAccount(adminUser, adminPass)
           }
-          j.setSecurityRealm(realm)
+          instance.setSecurityRealm(realm)
 
           def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
           strategy.setAllowAnonymousRead(false)
-          j.setAuthorizationStrategy(strategy)
+          instance.setAuthorizationStrategy(strategy)
 
+          def baseUrl = "${JenkinsBaseUrl}"
+          if (baseUrl != null && baseUrl.trim().length() > 0) {
+            def loc = JenkinsLocationConfiguration.get()
+            loc.setUrl(baseUrl.trim())
+            loc.save()
+          }
+
+          instance.save()
+          GROOVY
+
+          cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
+          import jenkins.model.*
+          import org.jenkinsci.plugins.workflow.job.WorkflowJob
+          import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
+          import hudson.plugins.git.*
+          import com.cloudbees.jenkins.GitHubPushTrigger
+
+          def j = Jenkins.get()
+          def repoUrl = "${WaguwaguServerRepoUrl}"
+          def srcBranch = "*/${SourceBranch}"
+
+          def ensurePipelineJob = { String jobName, String scriptPath ->
+            def existing = j.getItem(jobName)
+            WorkflowJob job
+
+            if (existing == null) {
+              println("[CREATE] Job: " + jobName + " branch=" + srcBranch)
+              job = j.createProject(WorkflowJob, jobName)
+            } else {
+              println("[UPDATE] Job: " + jobName + " branch=" + srcBranch)
+              job = (WorkflowJob) existing
+            }
+
+            def remote = new UserRemoteConfig(repoUrl, null, null, null)
+            def scm = new GitSCM(
+              [remote],
+              [new BranchSpec(srcBranch)],
+              false,
+              [],
+              null,
+              null,
+              []
+            )
+
+            def defn = new CpsScmFlowDefinition(scm, scriptPath)
+            defn.setLightweight(true)
+            job.definition = defn
+
+            try { job.getTriggers().clear() } catch (Throwable t) { println("[WARN] clear triggers failed: " + t) }
+            try { job.addTrigger(new GitHubPushTrigger()) } catch (Throwable t) { println("[WARN] add GitHubPushTrigger failed: " + t) }
+
+            job.save()
+          }
+
+          ensurePipelineJob("game-ci", "game-server/Jenkinsfile")
           j.save()
           GROOVY
 
-          if [ "$PLUGINS_OK" -eq 1 ]; then
-            set +e
-            SECRET_JSON="$(aws secretsmanager get-secret-value \
-              --secret-id ${GitHubPatSecretName} \
-              --query SecretString \
-              --output text \
-              --region $AWS_REGION 2>/dev/null)"
-            rc=$?
-            set -e
-
-            if [ $rc -eq 0 ] && [ -n "$SECRET_JSON" ]; then
-              PAT="$(printf '%s' "$SECRET_JSON" | jq -r '.${GitHubPatSecretKey}' | tr -d '\r\n')"
-            else
-              PAT=""
-            fi
-
-            if [ -n "$PAT" ]; then
-              install -d -o jenkins -g jenkins -m 700 /var/lib/jenkins/secret-files
-              printf '%s' "$PAT" > /var/lib/jenkins/secret-files/github_pat
-              chown jenkins:jenkins /var/lib/jenkins/secret-files/github_pat
-              chmod 600 /var/lib/jenkins/secret-files/github_pat
-            fi
-
-            cat >/var/lib/jenkins/init.groovy.d/03-credentials.groovy <<'GROOVY'
-            import jenkins.model.*
-            import com.cloudbees.plugins.credentials.*
-            import com.cloudbees.plugins.credentials.domains.*
-            import com.cloudbees.plugins.credentials.common.StandardCredentials
-            import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl
-            import hudson.util.Secret
-
-            def id = "github-pat-infra-push"
-            def desc = "GitHub PAT for pushing waguwagu-infra manifests"
-            def f = new File("/var/lib/jenkins/secret-files/github_pat")
-
-            if (!f.exists()) return
-            def pat = f.text.trim()
-            if (!pat) return
-
-            def j = Jenkins.get()
-            def provider = j.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0]
-            def store = provider.getStore()
-            def domain = Domain.global()
-
-            def existing = com.cloudbees.plugins.credentials.CredentialsProvider.lookupCredentials(
-              StandardCredentials.class, j, null, null
-            ).find { it.id == id }
-
-            if (existing != null) store.removeCredentials(domain, existing)
-
-            def c = new StringCredentialsImpl(CredentialsScope.GLOBAL, id, desc, Secret.fromString(pat))
-            store.addCredentials(domain, c)
-            GROOVY
-
-            cat >/var/lib/jenkins/init.groovy.d/02-jobs.groovy <<'GROOVY'
-            import jenkins.model.*
-            import org.jenkinsci.plugins.workflow.job.WorkflowJob
-            import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
-            import hudson.plugins.git.*
-            import com.cloudbees.jenkins.GitHubPushTrigger
-
-            def j = Jenkins.get()
-            def repoUrl = "${AppRepoUrl}"
-            def branchSpec = "${AppRepoBranch}"
-
-            def upsertPipelineJob = { String jobName, String scriptPath ->
-              WorkflowJob job = j.getItem(jobName) as WorkflowJob
-              if (job == null) job = j.createProject(WorkflowJob, jobName)
-
-              def remote = new UserRemoteConfig(repoUrl, null, null, null)
-              def scm = new GitSCM([remote],[new BranchSpec(branchSpec)],false,[],null,null,[])
-              job.definition = new CpsScmFlowDefinition(scm, scriptPath)
-
-              job.getTriggers().clear()
-              job.addTrigger(new GitHubPushTrigger())
-              job.save()
-            }
-
-            upsertPipelineJob("game-ci", "game-server/Jenkinsfile")
-            j.save()
-            GROOVY
-          fi
-
           chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
 
-          systemctl restart jenkins
+          systemctl start jenkins
           systemctl status jenkins --no-pager || true
+          ss -lntp | grep 8080 || true
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectPrefix}-Jenkins-Game"
+        - Key: Project
+          Value: WAGUWAGU
 
 Outputs:
   JenkinsInstanceMatchingId:
     Value: !Ref JenkinsInstanceMatching
+    Export:
+      Name: !Sub "${ProjectPrefix}-Jenkins-Matching-Instance-Id"
+
   JenkinsInstanceMatchingPublicIp:
     Value: !GetAtt JenkinsInstanceMatching.PublicIp
-  JenkinsMatchingWebhookUrl:
-    Value: !Sub "http://${JenkinsInstanceMatching.PublicIp}:8080/github-webhook/"
 
   JenkinsInstanceGameId:
     Value: !Ref JenkinsInstanceGame
+    Export:
+      Name: !Sub "${ProjectPrefix}-Jenkins-Game-Instance-Id"
+
   JenkinsInstanceGamePublicIp:
     Value: !GetAtt JenkinsInstanceGame.PublicIp
-  JenkinsGameWebhookUrl:
+
+  MatchingJenkinsWebhookUrl:
+    Value: !Sub "http://${JenkinsInstanceMatching.PublicIp}:8080/github-webhook/"
+    Description: "GitHub Webhook URL (Push event) - Matching/Frontend Jenkins"
+
+  GameJenkinsWebhookUrl:
     Value: !Sub "http://${JenkinsInstanceGame.PublicIp}:8080/github-webhook/"
+    Description: "GitHub Webhook URL (Push event) - Game Jenkins"

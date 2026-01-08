@@ -25,7 +25,7 @@ spec:
         app: waguwagu
         mode: room-per-pod
     spec:
-      ports:        
+      ports:
         - name: game
           portPolicy: Dynamic
           containerPort: 3001

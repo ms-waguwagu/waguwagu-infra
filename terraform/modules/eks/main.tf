@@ -2,7 +2,7 @@ resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   version  = var.cluster_version
   role_arn = aws_iam_role.cluster.arn
-  # bootstrap_self_managed_addons = false
+  #bootstrap_self_managed_addons = false
   vpc_config {
     subnet_ids = var.subnet_ids
   }
@@ -232,7 +232,7 @@ resource "aws_ec2_tag" "cluster_sg_name" {
   value       = "${var.cluster_name}-Cluster-SG"
 }
 
-#eks karpeterê´€ë ¨ tag ì¶”ê°€í•¨
+#eks karpeterê´?? ¨ tag ì¶”ê???•¨
 resource "aws_ec2_tag" "karpenter_discovery_cluster_sg" {
   resource_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
   key         = "karpenter.sh/discovery"
