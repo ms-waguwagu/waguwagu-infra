@@ -22,27 +22,36 @@ Resources:
           - |
             {
               "widgets": [
-                {
+                  {
                   "type": "metric",
                   "x": 0,
                   "y": 0,
                   "width": 12,
                   "height": 6,
                   "properties": {
-                    "title": "CPU Utilization - Game vs Matching",
+                    "title": "CPU Utilization (Seoul)",
                     "view": "timeSeries",
                     "region": "ap-northeast-2",
-                    "annotations": {
-                      "horizontal": [
-                        { "label": "Warning (50%)", "value": 50 }
-                      ]
-                    },
                     "metrics": [
-                      [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${GameASG}", { "label": "Game CPU", "stat": "Average" } ],
-                      [ ".", ".", ".", "${MatchingASG}", { "label": "Matching CPU", "stat": "Average" } ]
-                    ]
+                      [
+                        "AWS/EC2",
+                        "CPUUtilization",
+                        "AutoScalingGroupName",
+                        "${GameASG}",
+                        { "stat": "Average" }
+                      ],
+                      [
+                        "AWS/EC2",
+                        "CPUUtilization",
+                        "AutoScalingGroupName",
+                        "${MatchingASG}",
+                        { "stat": "Average" }
+                      ]
+                    ],
+                    "period": 300
                   }
                 },
+
                 {
                   "type": "metric",
                   "x": 12,
@@ -127,11 +136,91 @@ Resources:
                       [ ".", "GroupTerminatingInstances", ".", ".", { "label": "Matching Terminating" } ]
                     ]
                   }
+                },
+                {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 24,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "NAT Gateway Traffic (Game - Seoul)",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [
+                        "AWS/NATGateway",
+                        "BytesInFromSource",
+                        "NatGatewayId",
+                        "${GameNat}",
+                        { "stat": "Sum" }
+                      ],
+                      [
+                        ".",
+                        "BytesOutToDestination",
+                        ".",
+                        ".",
+                        { "stat": "Sum" }
+                      ]
+                    ],
+                    "period": 300
+                  }
+                },
+                {
+                  "type": "metric",
+                  "x": 12,
+                  "y": 24,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "NAT Gateway Traffic (Matching - Seoul)",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [
+                        "AWS/NATGateway",
+                        "BytesInFromSource",
+                        "NatGatewayId",
+                        "${MatchingNat}",
+                        { "stat": "Sum" }
+                      ],
+                      [
+                        ".",
+                        "BytesOutToDestination",
+                        ".",
+                        ".",
+                        { "stat": "Sum" }
+                      ]
+                    ],
+                    "period": 300
+                  }
+                },
+                       {
+                  "type": "metric",
+                  "x": 0,
+                  "y": 18,
+                  "width": 12,
+                  "height": 6,
+                  "properties": {
+                    "title": "Aurora Writer CPU (Seoul)",
+                    "view": "timeSeries",
+                    "region": "ap-northeast-2",
+                    "metrics": [
+                      [
+                        "AWS/RDS",
+                        "CPUUtilization",
+                        "DBInstanceIdentifier",
+                        "wagu-prod-aurora-writer"
+                      ]
+                    ],
+                    "period": 300
+                  }
                 }
               ]
             }
           - GameASG: !Ref GameNodeASG
             MatchingASG: !Ref MatchingNodeASG
+            AuroraId: wagu-aurora-prod-cluster
+            GameNat: !ImportValue T3-Wagu-Game-NAT-GW-Id
+            MatchingNat: !ImportValue T3-Wagu-Matching-NAT-GW-Id
 
   ############################################################
   # Alarm
