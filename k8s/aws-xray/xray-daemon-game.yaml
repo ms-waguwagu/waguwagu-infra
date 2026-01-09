@@ -9,7 +9,7 @@ metadata:
   name: xray-daemon
   namespace: aws-xray
   annotations:
-  eks.amazonaws.com/role-arn: arn:aws:iam::061039804626:role/T3-Wagu-Game-EKS-xray-daemon-role
+    eks.amazonaws.com/role-arn: arn:aws:iam::061039804626:role/T3-Wagu-Game-EKS-xray-daemon-role
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -42,7 +42,7 @@ spec:
           resources:
             limits:
               cpu: "200m"
-              memory: "256Mi"
+              memory: "256Mi" 
             requests:
               cpu: "50m"
               memory: "64Mi"
