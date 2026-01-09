@@ -22,7 +22,6 @@ Resources:
     Properties:
       DBClusterIdentifier: wagu-dr-aurora-cluster
       Engine: aurora-mysql
-      EngineVersion: "8.0.mysql_aurora.3.04.0"
       GlobalClusterIdentifier: wagu-global-db
       DBSubnetGroupName: !Ref WaguAuroraSubnetGroup
 
