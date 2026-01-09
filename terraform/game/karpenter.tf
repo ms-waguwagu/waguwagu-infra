@@ -155,9 +155,7 @@ resource "helm_release" "karpenter" {
   name      = "karpenter"
   namespace = local.karpenter_namespace
 
-  chart = "${path.root}/charts/karpenter-${var.karpenter_version}.tgz" 
-  #chart   = "oci://public.ecr.aws/karpenter/karpenter"
-  #version = var.karpenter_version
+  chart   = "${path.root}/karpenter-1.8.3.tgz" # 로컬 파일 직접 참조
 
   wait            = true
   wait_for_jobs   = true

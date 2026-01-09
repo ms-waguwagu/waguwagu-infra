@@ -32,10 +32,10 @@ spec:
           effect: NoSchedule
       containers:
         - name: matching
-          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:396fb23-2
+          image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-matching-server:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 300
+            - containerPort: 3000
 
           resources:
             requests:
@@ -109,7 +109,7 @@ spec:
 
             - name: AGONES_ALLOCATOR_ENDPOINT
               # 환경변수 분리 필수
-              value: "https://k8s-agonessy-agonesal-6575643784-5ef934a1e08f470a.elb.ap-northeast-2.amazonaws.com"
+              value: "https://k8s-agonessy-agonesal-fa21c9345b-2ac849ee3622fea7.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH
@@ -118,8 +118,12 @@ spec:
               value: "/etc/agones/allocator/ca/tls-ca.crt"
 
             - name: ROUTE53_HOSTED_ZONE_ID
-              value: Z03982962I5Q4PS90RDSK
+              # waguwagu.cloud  
+              # value: Z03982962I5Q4PS90RDSK 
 
+              # mswagu.cloud
+              value: Z09371181GSLOUFNWO2OP
+              
             - name: AWS_REGION
               # value: us-east-1
               value: ap-northeast-2
