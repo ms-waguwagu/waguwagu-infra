@@ -2,7 +2,7 @@
 
 variable "karpenter_version" {
   type    = string
-  default = "1.8.3" # Karpenter 공식 getting-started 예시 버전 
+  default = "1.8.3" 
 }
 
 locals {
@@ -74,8 +74,8 @@ resource "aws_iam_role" "karpenter_controller_role" {
   assume_role_policy = data.aws_iam_policy_document.karpenter_controller_assume.json
 }
 
-# - iam:PassRole이 있어야 Node Role을 EC2에 붙일 수 있음 
-# - clusterEndpoint는 설정하면 되지만, 미설정 시 DescribeCluster로 자동 탐지 
+# iam:PassRole이 있어야 Node Role을 EC2에 붙일 수 있음 
+# clusterEndpoint는 설정하면 되지만, 미설정 시 DescribeCluster로 자동 탐지 
 
 data "aws_iam_policy_document" "karpenter_controller_policy_doc" {
   statement {
@@ -148,8 +148,7 @@ resource "kubernetes_service_account" "karpenter_sa" {
 }
 
 # Helm Install Karpenter Controller
-# - settings.clusterName은 필수 
-# - On-Demand only라서 interruptionQueue(SQS)는 설정 안 함
+
 
 resource "helm_release" "karpenter" {
   name      = "karpenter"
@@ -177,8 +176,7 @@ resource "helm_release" "karpenter" {
     value = module.eks.cluster_endpoint
   }
 
-  # 온디맨드-only: interruptionQueue 미설정 (SQS 안 만드니까)
-  # set { name = "settings.interruptionQueue" value = local.cluster_name }
+  
 
   set {
     name  = "controller.resources.requests.cpu"

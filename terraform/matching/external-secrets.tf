@@ -16,7 +16,7 @@ resource "kubernetes_namespace" "external_secrets" {
 }
 
 # (2) IAM Policy: Secrets Manager read
-# ✅ 가장 안전: 특정 Secret ARN만 허용
+# 특정 Secret ARN만 허용
 variable "eso_secret_arns" {
   type        = list(string)
   description = "Secrets Manager Secret ARNs that ESO can read"
@@ -97,7 +97,7 @@ resource "helm_release" "external_secrets" {
   chart      = "external-secrets"
   namespace  = kubernetes_namespace.external_secrets.metadata[0].name
 
-  # ✅ Helm이 리소스 Ready 될 때까지 기다리게
+  # Helm이 리소스 Ready 될 때까지 기다리게
   wait            = true
   wait_for_jobs   = true
   timeout         = 600 # seconds (10분 정도)
@@ -105,8 +105,6 @@ resource "helm_release" "external_secrets" {
   cleanup_on_fail = true
 
 
-  # 가급적 버전 고정 추천 (예: "0.10.5" 같은 식)
-  # version = "..."
 
   set {
     name  = "installCRDs"
@@ -127,7 +125,6 @@ resource "helm_release" "external_secrets" {
     aws_iam_role_policy_attachment.eso_attach,
     kubernetes_service_account.eso_sa,
 
-    # ✅ 같은 root에 있다면 추가!
     helm_release.alb_controller
   ]
 }
