@@ -14,7 +14,6 @@ Parameters:
   LatestAmiId:
     Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
     Default: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
-    Description: Latest Amazon Linux 2023 AMI ID from SSM Parameter Store
 
   JenkinsAdminUser:
     Type: String
@@ -29,22 +28,18 @@ Parameters:
     Default: ""
     Description: "Optional. Example: http://your-domain-or-ip:8080 (leave blank if not used)"
 
-  ############################################################
-  # Source repo (where Jenkinsfiles live)
-  ############################################################
+  # Source repo
   WaguwaguServerRepoUrl:
     Type: String
     Default: "https://github.com/ms-waguwagu/waguwagu-server.git"
 
-  # 트리거
+  # gitHub Webhook 트리거
   SourceBranch:
     Type: String
     Default: "main"
     Description: "Push to this branch triggers jobs via GitHub  (frontend/matching/game)."
 
-  ############################################################
-  # Frontend deploy target
-  ############################################################
+  # Frontend (s3, cloudfront invalidation)
   FrontendBucketName:
     Type: String
     Default: "t3-wagu-s3-bucket"
@@ -60,9 +55,7 @@ Parameters:
     Default: "CLOUDFRONT_DISTRIBUTION_ID"
     Description: "Key inside SecretString JSON for CloudFront Distribution ID"
 
-  ############################################################
   # GitHub PAT (Secrets Manager)
-  ############################################################
   GitHubPatSecretName:
     Type: String
     Default: "T3-Wagu-Secrets"
@@ -72,9 +65,7 @@ Parameters:
     Default: "GITHUB_PAT"
 
 Resources:
-  ############################################################
-  # IAM Role for Jenkins EC2
-  ############################################################
+  # IAM Role for Jenkins EC2 (SSM 접속)
   JenkinsRole:
     Type: AWS::IAM::Role
     Properties:
@@ -109,7 +100,7 @@ Resources:
                   - s3:DeleteObject
                 Resource: !Sub "arn:aws:s3:::${FrontendBucketName}/*"
 
-        # CloudFront invalidation + Secrets Manager read (CloudFront ID / GitHub PAT)
+        # CloudFront invalidation + GitHub PAT 읽기
         - PolicyName: JenkinsCloudFrontAndSecretsPolicy
           PolicyDocument:
             Version: "2012-10-17"
@@ -138,9 +129,7 @@ Resources:
       Roles:
         - !Ref JenkinsRole
 
-  ############################################################
-  # Security Group (Matching Jenkins) - allow GitHub webhook inbound 8080
-  ############################################################
+  # Security Group (Matching Jenkins)
   JenkinsMatchingSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -148,7 +137,7 @@ Resources:
       VpcId: !ImportValue T3-Wagu-Matching-VPC-Id
 
       SecurityGroupIngress:
-        # GitHub Webhook IP ranges (example)
+        # GitHub Webhook IP ranges
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
@@ -168,9 +157,7 @@ Resources:
         - Key: Project
           Value: WAGUWAGU
 
-  ############################################################
-  # Security Group (Game Jenkins) - allow GitHub webhook inbound 8080
-  ############################################################
+  # Security Group (Game Jenkins)
   JenkinsGameSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -197,9 +184,7 @@ Resources:
         - Key: Project
           Value: WAGUWAGU
 
-  ############################################################
   # Jenkins EC2 Instance (Matching + Frontend)
-  ############################################################
   JenkinsInstanceMatching:
     Type: AWS::EC2::Instance
     Properties:
@@ -403,9 +388,7 @@ Resources:
         - Key: Project
           Value: WAGUWAGU
 
-  ############################################################
   # Jenkins EC2 Instance (Game)
-  ############################################################
   JenkinsInstanceGame:
     Type: AWS::EC2::Instance
     Properties:
@@ -619,7 +602,7 @@ Outputs:
 
   JenkinsInstanceGamePublicIp:
     Value: !GetAtt JenkinsInstanceGame.PublicIp
-
+  #GitHub에서 webhook을 보내는 url
   MatchingJenkinsWebhookUrl:
     Value: !Sub "http://${JenkinsInstanceMatching.PublicIp}:8080/github-webhook/"
     Description: "GitHub Webhook URL (Push event) - Matching/Frontend Jenkins"
