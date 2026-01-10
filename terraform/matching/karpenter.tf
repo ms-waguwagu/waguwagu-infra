@@ -156,7 +156,7 @@ resource "helm_release" "karpenter" {
   namespace = local.karpenter_namespace
 
 
-  chart = "${path.root}/charts/karpenter-${var.karpenter_version}.tgz" 
+  chart = "${path.root}/karpenter-${var.karpenter_version}.tgz" 
   #chart= "oci://public.ecr.aws/karpenter/karpenter"
   #version= var.karpenter_version
 
