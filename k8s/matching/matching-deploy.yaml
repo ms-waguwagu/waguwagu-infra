@@ -108,8 +108,7 @@ spec:
                   key: GAME_RESULT_QUEUE_URL
 
             - name: AGONES_ALLOCATOR_ENDPOINT
-              # 환경변수 분리 필수
-              value: "https://k8s-agonessy-agonesal-fa21c9345b-2ac849ee3622fea7.elb.ap-northeast-2.amazonaws.com"
+              value: "https://k8s-agonessy-agonesal-6a4c4ad05f-bc3e05c3c2840dad.elb.ap-northeast-2.amazonaws.com"
             - name: AGONES_CLIENT_CERT_PATH
               value: "/etc/agones/allocator/client/tls.crt"
             - name: AGONES_CLIENT_KEY_PATH
