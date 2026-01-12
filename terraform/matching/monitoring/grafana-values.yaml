@@ -186,11 +186,3 @@ dashboards:
 sidecar:
   dashboards:
     enabled: true
-
-########################
-# Anonymous Access
-########################
-grafana.ini:
-  auth.anonymous:
-    enabled: true
-    org_role: Viewer
