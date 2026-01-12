@@ -1,9 +1,21 @@
 server:
   persistentVolume:
     enabled: false
+  service:
+    type: LoadBalancer
+    port: 9090
+    annotations:
+      service.k8s.aws/load-balancer-scheme: internet-facing
+  extraArgs:
+    web.enable-remote-write-receiver: ""
 
 alertmanager:
   enabled: false
 
 pushgateway:
   enabled: true
+
+prometheus:
+  prometheusSpec:
+    enableRemoteWriteReceiver: true
+

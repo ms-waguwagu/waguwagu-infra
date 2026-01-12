@@ -16,7 +16,7 @@ datasources:
     datasources:
       - name: Prometheus-Game
         type: prometheus
-        url: http://k8s-monitori-promethe-dff703cb11-2a447f383332d3b5.elb.ap-northeast-2.amazonaws.com #하드코딩, 매일 바꿔야 하는 값
+        url: http://k8s-monitori-promethe-368ec78d1a-1c316285256eedcb.elb.ap-northeast-2.amazonaws.com #하드코딩, 매일 바꿔야 하는 값
         access: proxy
         isDefault: true
 
@@ -66,6 +66,15 @@ dashboardProviders:
         options:
           path: /var/lib/grafana/dashboards/loki
 
+      - name: k6
+        orgId: 1
+        folder: k6
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/k6
+
 dashboards:
   game:
     kubernetes-cluster-game:
@@ -76,6 +85,12 @@ dashboards:
   matching:
     kubernetes-cluster-matching:
       gnetId: 15757
+      revision: 1
+      datasource: Prometheus-Matching
+
+  k6:
+    kubernetes-cluster-k6:
+      gnetId: 19665
       revision: 1
       datasource: Prometheus-Matching
 
