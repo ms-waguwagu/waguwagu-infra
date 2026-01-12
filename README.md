@@ -22,9 +22,8 @@
 2. [CloudFormation 배포 위치](#2-cloudformation-배포-위치)
 3. [CloudFormation 전체 자동 배포 (서울)](#3-cloudformation-전체-자동-배포-서울-리전)
 4. [CloudFront 배포](#4-cloudfront-배포)
-5. [CloudWatch 배포](#5-cloudwatch-배포)
-6. [CloudTrail 배포](#6-cloudtrail-배포-서울-리전)
-7. [DR (도쿄 리전) 운영 절차](#7-dr-도쿄-리전-운영-절차)
+5. [CloudWatch 및 CloudTrail 배포](#5-cloudwatch-및-cloudtrail-배포)
+6. [DR (도쿄 리전) 운영 절차](#6-dr-도쿄-리전-운영-절차)
 
 ### Terraform / Kubernetes
 
@@ -84,14 +83,6 @@ waguwagu-infra/cloudformation/deploy
 
 ## 4. CloudFront 배포
 
-### 실행 위치
-
-```bash
-waguwagu-infra/cloudformation/deploy
-```
-
-### 실행 방법
-
 **서울 리전**
 
 ```bash
@@ -108,65 +99,24 @@ waguwagu-infra/cloudformation/deploy
 
 ---
 
-## 5. CloudWatch 배포
+## 5. CloudWatch 및 CloudTrail 배포
 
-### 5-1. 서울 리전
-
-**AutoScaling Group 이름 확인**
+**서울 리전**
 
 ```bash
-aws autoscaling describe-auto-scaling-groups \
-  --query "AutoScalingGroups[].AutoScalingGroupName" \
-  --output table \
-  --region ap-northeast-2
+./deploy-monitoring.sh
 ```
+> CloudWatch 및 CloudTrail 배포
 
-**CloudWatch 스택 배포**
+**도쿄 리전 (DR)**
 
 ```bash
-aws cloudformation deploy \
-  --stack-name T3-Wagu-CloudWatch \
-  --template-file T3-Wagu-CloudWatch.yaml \
-  --parameter-overrides \
-    GameNodeASG=<GAME_NODE_ASG> \
-    MatchingNodeASG=<MATCHING_NODE_ASG> \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region ap-northeast-2
+./deploy-monitoring.sh tokyo
 ```
-
+> CloudWatch만 배포
 ---
 
-### 5-2. 도쿄 리전 (DR)
-
-```bash
-aws cloudformation deploy \
-  --stack-name T3-Wagu-CloudWatch-DR \
-  --template-file T3-Wagu-CloudWatch-DR.yaml \
-  --parameter-overrides \
-    GameNodeASG=<GAME_NODE_ASG> \
-    MatchingNodeASG=<MATCHING_NODE_ASG> \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region ap-northeast-1
-```
-
----
-
-## 6. CloudTrail 배포 (서울 리전)
-
-CloudTrail은 **항상 활성화**한다.
-
-```bash
-aws cloudformation deploy \
-  --stack-name T3-Wagu-CloudTrail \
-  --template-file T3-Wagu-CloudTrail.yaml \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region ap-northeast-2 \
-  --parameter-overrides AlertEmail=<ALERT_EMAIL>
-```
-
----
-
-## 7. DR (도쿄 리전) 운영 절차
+## 6. DR (도쿄 리전) 운영 절차
 
 ### 기본 인프라 배포 (항상 실행)
 
