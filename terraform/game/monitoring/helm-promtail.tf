@@ -5,8 +5,9 @@ data "kubernetes_namespace_v1" "monitoring" {
 }
 
 resource "helm_release" "promtail" {
-  name      = "promtail"
-  namespace = data.kubernetes_namespace_v1.monitoring.metadata[0].name
+  name             = "promtail"
+  namespace        = "monitoring"
+  create_namespace = true
 
   repository = "https://grafana.github.io/helm-charts"
   chart      = "promtail"

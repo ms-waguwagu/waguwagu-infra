@@ -4,7 +4,7 @@ set -e
 BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SEOUL_DIR="$BASE_DIR/seoul"
 
-TOTAL=9
+TOTAL=8
 CURRENT=0
 
 step () {
@@ -72,14 +72,6 @@ step "SQS 배포"
 aws cloudformation deploy \
   --stack-name T3-Wagu-SQS \
   --template-file "$SEOUL_DIR/T3-Wagu-Sqs.yaml" \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --profile wagu
-
-# 9. CloudTrail
-step "CloudTrail 배포"
-aws cloudformation deploy \
-  --stack-name T3-Wagu-Cloudtrail \
-  --template-file "$SEOUL_DIR/T3-Wagu-Cloudtrail.yaml" \
   --capabilities CAPABILITY_NAMED_IAM \
   --profile wagu
 

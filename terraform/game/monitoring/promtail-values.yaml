@@ -1,6 +1,6 @@
 config:
-  clients: #Loki NLB, 매일 바뀌는 값
-    - url: http://aa43bfbf99b5947c88c3f7141d363202-605213910cb30658.elb.ap-northeast-2.amazonaws.com:3100/loki/api/v1/push
+  clients: #Loki NLB, 하드코딩, 매일 바뀌는 값
+    - url: http:/k8s-monitori-loki-ee76f01652-8ac2207ff27313ab.elb.ap-northeast-2.amazonaws.com:3100/loki/api/v1/push
       tenant_id: game
 
   snippets:
