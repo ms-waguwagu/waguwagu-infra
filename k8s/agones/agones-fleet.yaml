@@ -59,7 +59,7 @@ spec:
           serviceAccountName: game-server-sa
           containers:
             - name: game-server
-              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:bf81488-3
+              image: 061039804626.dkr.ecr.ap-northeast-2.amazonaws.com/t3-wagu-game-server:latest
               imagePullPolicy: Always
               ports:
                 - containerPort: 3001
