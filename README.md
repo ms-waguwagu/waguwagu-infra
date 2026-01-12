@@ -34,9 +34,10 @@
 4. [kubectl 컨텍스트 전환](#4-kubectl-컨텍스트-전환)
 5. [Karpenter 설정 (Matching)](#5-karpenter-설정-matching)
 6. [Kubernetes 리소스 배포](#6-kubernetes-리소스-배포-권장)
-7. [Kubernetes 리소스 삭제](#7-kubernetes-리소스-삭제-자동화)
-8. [Terraform 리소스 삭제](#8-terraform-리소스-삭제-자동화)
-9. [mTLS 설정 (Matching ↔ Game 서버 통신)](#9-mtls-설정-matching--game-서버-통신)
+7. [Monitoring 배포](#7-monitoring-배포)
+8. [Kubernetes 리소스 삭제](#8-kubernetes-리소스-삭제-자동화)
+9. [Terraform 리소스 삭제](#9-terraform-리소스-삭제-자동화)
+10. [mTLS 설정 (Matching ↔ Game 서버 통신)](#10-mtls-설정-matching--game-서버-통신)
 
 ---
 
@@ -245,8 +246,53 @@ cd waguwagu-infra
 ```
 
 ---
+## 7. Monitoring 배포
 
-## 7. Kubernetes 리소스 삭제 (자동화)
+실행 위치
+```bash
+cd waguwagu-infra/terraform/scripts
+```
+
+**7-1. EBS CSI Driver 설치 (필수, 1회)**
+```bash
+./setup-ebs-csi.sh
+```
+
+**7-2. Game Monitoring 배포**
+```bash
+./deploy-game-monitoring.sh
+```
+
+> Prometheus EXTERNAL-IP 복사
+
+**7-3. Matching Monitoring 배포**
+```bash
+./deploy-matching-monitoring.sh
+```
+
+> Loki EXTERNAL-IP 복사
+
+**7-4. Monitoring URL 반영**
+```bash
+./update-monitoring-urls.sh
+```
+
+**7-5. Monitoring 재적용**
+```bash
+cd ../game/monitoring
+terraform apply -auto-approve
+
+cd ../../matching/monitoring
+terraform apply -auto-approve
+```
+
+**7-6. Monitoring 삭제**
+```bash
+./destroy-monitoring.sh
+```
+---
+
+## 8. Kubernetes 리소스 삭제 (자동화)
 
 ```bash
 cd waguwagu-infra
@@ -255,7 +301,7 @@ cd waguwagu-infra
 
 ---
 
-## 8. Terraform 리소스 삭제 (자동화)
+## 9. Terraform 리소스 삭제 (자동화)
 
 ```bash
 cd waguwagu-infra
@@ -265,7 +311,7 @@ cd waguwagu-infra
 ---
 
 
-## 9. mTLS 설정 (Matching ↔ Game 서버 통신)
+## 10. mTLS 설정 (Matching ↔ Game 서버 통신)
 
 Matching 서버와 Game 서버 간 **내부 통신 보안 강화를 위해 mTLS를 사용**한다.
 mTLS 설정은 **Terraform 및 기본 Kubernetes 리소스 배포 이후**에 수행해야 한다.
