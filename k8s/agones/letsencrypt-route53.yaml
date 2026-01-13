@@ -14,10 +14,10 @@ spec:
           route53:
             region: ap-northeast-2
             # waguwagu.cloud
-            # hostedZoneID: "Z03982962I5Q4PS90RDSK"
+            hostedZoneID: "Z03982962I5Q4PS90RDSK"
 
             # mswagu.cloud
-            hostedZoneID: "Z09371181GSLOUFNWO2OP"
+            # hostedZoneID: "Z09371181GSLOUFNWO2OP"
             accessKeyID: "AKIAQ4NSBQDJEXXFIBY5"
             secretAccessKeySecretRef:
               name: route53-credentials-secret

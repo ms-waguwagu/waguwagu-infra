@@ -15,7 +15,7 @@ metadata:
     # waguwagu.cloud 
     # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:061039804626:certificate/c0d82e0a-5d5d-468a-9256-6bafd9eb6018
 
-    # mswagu.cloud
+    # waguwagu.cloud
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:061039804626:certificate/d3b9347c-8d4e-493a-9193-75599bfb81eb
 
     # [추가 1] CORS 설정 (이게 있어야 프론트엔드가 접속 가능!)
@@ -30,8 +30,8 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    # - host: matching.waguwagu.cloud
-    - host: matching.mswagu.cloud
+    # - host: matching.mswagu.cloud
+    - host: matching.waguwagu.cloud
       http:
         paths:
           - path: /

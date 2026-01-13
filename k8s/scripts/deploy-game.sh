@@ -31,7 +31,8 @@ kubectl apply -f route53-externalsecret.yaml
 echo "▶ Let's Encrypt Issuer 적용"
 kubectl apply -f letsencrypt-route53.yaml
 
-echo "▶ Wildcard Certificate 요청 (*.game.mswagu.cloud)"
+# echo "▶ Wildcard Certificate 요청 (*.game.mswagu.cloud)"
+echo "▶ Wildcard Certificate 요청 (*.game.waguwagu.cloud)"
 kubectl apply -f game-wss-certificate.yaml
 
 echo "⌛ 인증서 발급 대기 (최대 5분)..."

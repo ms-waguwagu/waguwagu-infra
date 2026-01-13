@@ -14,7 +14,7 @@
 
 ---
 
-## 📚 목차
+## 목차
 
 ### CloudFormation
 
@@ -41,7 +41,7 @@
 
 ---
 
-# ☁️ CloudFormation
+# CloudFormation
 
 ## 1. 사전 준비
 
@@ -139,7 +139,7 @@ DR 클러스터 생성 완료 후 CloudFront 배포:
 
 ---
 
-# 🧱 Terraform / Kubernetes
+# Terraform / Kubernetes
 
 ## 0. 사전 준비
 
@@ -311,72 +311,37 @@ cd waguwagu-infra
 ---
 
 
-## 10. mTLS 설정 (Matching ↔ Game 서버 통신)
+## 10. mTLS 설정 및 Matching 서버 배포
 
-Matching 서버와 Game 서버 간 **내부 통신 보안 강화를 위해 mTLS를 사용**한다.
-mTLS 설정은 **Terraform 및 기본 Kubernetes 리소스 배포 이후**에 수행해야 한다.
-
----
-
-### 사전 조건
-
-아래 작업이 **모두 완료된 상태**여야 한다.
-
-* Matching / Game 클러스터 **Terraform `apply` 완료**
-* 각 클러스터의 **Namespace 생성 완료**
-
-  * Matching: `matching`
-  * Game: `game`, `agones`
-* **Agones Fleet 배포 완료**
-
-> ⚠️ 현재 Namespace 생성은 수동이며, 추후 자동화 예정
+Matching 서버는 Game 서버로부터 할당 정보를 안전하게 받기 위해 **mTLS**를 사용한다. 이 모든 과정은 자동화 스크립트에 통합되어 있다.
 
 ---
 
-### mTLS 설정 절차
+### 통합 배포 스크립트 실행
 
-#### 1️⃣ mTLS 스크립트 위치로 이동
+별도의 인증서 추출 과정 없이, 아래 스크립트 하나로 **mTLS 설정 + Allocator 엔드포인트 갱신 + 서버 배포**가 일괄 수행된다.
 
 ```bash
-cd waguwagu-infra/k8s/game/agones/mtls
+cd waguwagu-infra
+./k8s/scripts/deploy-matching.sh
 ```
 
----
-
-#### 2️⃣ mTLS 인증서 및 Secret 자동 생성
-
-```bash
-./setup-mtls.sh
-```
-
-해당 스크립트는 다음 작업을 자동 수행한다.
-
-* Root CA / Server / Client 인증서 생성
-* Game / Matching Namespace에 Kubernetes Secret 생성
-* mTLS 통신을 위한 기본 인증 구조 구성
-
----
-
-#### 3️⃣ Matching Deployment 적용
-
-mTLS Secret이 생성된 이후에 **Matching 서버 Deployment를 적용**해야 한다.
-
-```bash
-kubectl apply -f waguwagu-infra/k8s/matching/matching-deploy.yaml
-```
+**스크립트 내부 동작:**
+1. **Allocator 조회**: Game 클러스터에서 `agones-allocator`의 접속 주소를 자동으로 가져옴.
+2. **mTLS 자동 설정**: `setup-mtls.sh`를 호출하여 인증서(CA, Client) 추출 및 Matching 클러스터 적용.
+3. **환경 변수 갱신**: `matching-deploy.yaml`의 엔드포인트를 최신화.
+4. **최종 배포**: 모든 설정이 완료된 후 Matching 서버를 클러스터에 배포.
 
 ---
 
 ### 주의 사항
 
-* mTLS 설정 이전에 Matching Deployment를 적용하면 **인증서 참조 오류 발생**
-* 인증서 재생성이 필요한 경우, 기존 Secret 삭제 후 스크립트 재실행 권장
-* Game ↔ Matching 통신 포트 및 SAN 설정은 `setup-mtls.sh` 기준으로 유지
+* **도메인 확인**: 게임 서버 접속은 공인 인증서(`wss://*.game.waguwagu.cloud`)를 사용하며, 서버 간 통신은 mTLS를 사용한다.
 
 ---
 
 
-## ✅ 운영 원칙 요약
+## 운영 원칙 요약
 
 * CloudFormation → **공통 인프라**
 * Terraform → **EKS / 네트워크**

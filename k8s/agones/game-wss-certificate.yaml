@@ -9,5 +9,5 @@ spec:
     name: letsencrypt-route53
     kind: ClusterIssuer
   dnsNames:
-    # - "*.game.waguwagu.cloud"
-    - "*.game.mswagu.cloud"
+    # - "*.game.mswagu.cloud"
+    - "*.game.waguwagu.cloud"

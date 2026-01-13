@@ -32,8 +32,8 @@ kubectl get ingress -n matching
 # 6. Allocator Endpoint 조회
 echo "▶ Game 클러스터로 전환 (Allocator 조회)"
 aws eks update-kubeconfig \
-  --region ap-northeast-1 \
-  --name T3-Wagu-DR-Game-EKS
+  --region ap-northeast-2 \
+  --name T3-Wagu-Game-EKS
 
 AGONES_ALLOCATOR_ENDPOINT=$(kubectl get svc agones-allocator \
   -n agones-system \
@@ -60,14 +60,18 @@ sed -i.bak \
   matching-deploy.yaml
 
 
-# 6. mTLS 설정
+# 9. mTLS 설정
 echo "▶ mTLS 설정 실행"
 cd ../agones/mtls
 ./setup-mtls.sh
 
-# 7. HPA 적용
-echo "▶ HPA 적용"
+# 10. Matching Server 배포
+echo "▶ Matching Server Deployment 적용"
 cd ../../matching
+kubectl apply -f matching-deploy.yaml
+
+# 11. HPA 적용
+echo "▶ HPA 적용"
 kubectl apply -f matching-hpa.yaml
 kubectl get hpa -n matching
 

@@ -120,7 +120,7 @@ spec:
               # waguwagu.cloud  
               # value: Z03982962I5Q4PS90RDSK 
 
-              # mswagu.cloud
+              # waguwagu.cloud
               value: Z09371181GSLOUFNWO2OP
               
             - name: AWS_REGION
