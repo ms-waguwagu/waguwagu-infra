@@ -6,8 +6,8 @@
 
 **(Terraform + CloudFormation 기반 인프라 운영 문서)**
 
-이 문서는 **WAGUWAGU 서비스 인프라의 배포, 운영, 삭제 절차**를 정리한다.
-인프라는 **AWS CloudFormation + Terraform + Kubernetes(EKS)** 기반으로 구성되어 있다.
+이 문서는 **WAGUWAGU 서비스 인프라의 배포, 운영, 삭제 절차**를 정리합니다.
+인프라는 **AWS CloudFormation + Terraform + Kubernetes(EKS)** 기반으로 구성되어 있습니다.
 
 * **메인 리전**: 서울 (`ap-northeast-2`)
 * **DR 리전**: 도쿄 (`ap-northeast-1`)
@@ -15,6 +15,8 @@
 ---
 
 ## 목차
+
+1. [📂 프로젝트 구조](#-프로젝트-구조-project-structure)
 
 ### CloudFormation
 
@@ -37,7 +39,36 @@
 7. [Monitoring 배포](#7-monitoring-배포)
 8. [Kubernetes 리소스 삭제](#8-kubernetes-리소스-삭제-자동화)
 9. [Terraform 리소스 삭제](#9-terraform-리소스-삭제-자동화)
-10. [mTLS 설정 (Matching ↔ Game 서버 통신)](#10-mtls-설정-matching--game-서버-통신)
+10. [mTLS 설정 및 Matching 서버 배포](#10-mtls-설정-및-matching-서버-배포)
+
+---
+
+## 📂 프로젝트 구조 (Project Structure)
+
+```text
+waguwagu-infra/
+├── cloudformation/           # 기초 인프라 (VPC, IAM, 공통 리소스)
+│   ├── seoul/                # 메인 리전 (서울) 인프라 구성 템플릿
+│   ├── tokyo/                # DR 리전 (도쿄) 인프라 구성 템플릿
+│   └── deploy/               # 초기 인프라 일괄 배포 스크립트
+│
+├── terraform/                # EKS 클러스터 및 플랫폼 리소스 관리
+│   ├── game/                 # Game EKS 클러스터 및 Agones 컨트롤러 설정
+│   ├── matching/             # Matching EKS 클러스터 및 애플리케이션 기초 설정
+│   ├── modules/              # VPC, EKS, SG 등 재사용 가능한 인프라 모듈
+│   └── scripts/              # 모니터링 설치 및 리소스 삭제 자동화 스크립트
+│
+└── k8s/                      # Kubernetes 서비스 리소스 및 워크로드
+    ├── agones/               # Agones Fleet 설정 및 mTLS 인증서 통신 보안
+    ├── matching/             # 매칭 서버 배포 매니페스트 (Deployment, HPA, Ingress)
+    ├── karpenter/            # 효율적인 노드 확장을 위한 NodePool/NodeClass 설정
+    └── scripts/              # mTLS 연동 및 통합 서비스 배포 메인 스크립트
+```
+
+### 계층별 역할 요약
+1. **CloudFormation (Foundations)**: 인프라의 가장 바닥인 네트워크와 권한(IAM)을 구축합니다.
+2. **Terraform (Provisioning)**: 프로비저닝 단계로 EKS 클러스터와 필요한 관리 도구들을 설치합니다.
+3. **Kubernetes (Services)**: 실제 서비스가 돌아가는 단계로 애플리케이션과 세부 설정을 관리합니다.
 
 ---
 
@@ -57,7 +88,7 @@ aws configure
 
 ## 2. CloudFormation 배포 위치
 
-모든 CloudFormation 스크립트는 아래 디렉토리에서 실행한다.
+모든 CloudFormation 스크립트는 아래 디렉토리에서 실행합니다.
 
 ```bash
 waguwagu-infra/cloudformation/deploy
@@ -67,7 +98,7 @@ waguwagu-infra/cloudformation/deploy
 
 ## 3. CloudFormation 전체 자동 배포 (서울 리전)
 
-서울 리전의 **공통 인프라(VPC, IAM, 기본 리소스)** 를 일괄 배포한다.
+서울 리전의 **공통 인프라(VPC, IAM, 기본 리소스)** 를 일괄 배포합니다.
 
 ```bash
 ./deploy-all.sh
@@ -96,7 +127,7 @@ waguwagu-infra/cloudformation/deploy
 ./deploy-cloudfront.sh tokyo
 ```
 
-> ⚠️ Ingress 생성 후 ALB DNS가 준비된 상태여야 한다.
+> ⚠️ Ingress 생성 후 ALB DNS가 준비된 상태여야 합니다.
 
 ---
 
@@ -165,7 +196,7 @@ terraform init
 
 ## 2. EKS 클러스터 선배포 (필수)
 
-> ⚠️ EKS가 없으면 helm/kubernetes 리소스가 실패한다.
+> ⚠️ EKS가 없으면 helm/kubernetes 리소스가 실패합니다.
 
 ```bash
 terraform apply \
@@ -211,21 +242,11 @@ kubectl get nodes
 ```
 
 ```bash
-kubectl config use-context arn:aws:eks:ap-northeast-2:061039804626:cluster/T3-Wagu-Matching-EKS
-kubectl config use-context arn:aws:eks:ap-northeast-2:061039804626:cluster/T3-Wagu-Game-EKS
+kubectl config use-context arn:aws:eks:ap-northeast-2:<AWS_ACCOUNT_ID>:cluster/T3-Wagu-Matching-EKS
+kubectl config use-context arn:aws:eks:ap-northeast-2:<AWS_ACCOUNT_ID>:cluster/T3-Wagu-Game-EKS
 ```
 
 ---
-
-## 5. Karpenter 설정 (Matching)
-
-```bash
-cd waguwagu-infra/k8s/karpenter/matching
-
-kubectl apply -f matching-nodeclass.yaml
-kubectl apply -f matching-nodepool.yaml
-kubectl get ec2nodeclass,nodepool
-```
 
 ---
 
@@ -235,15 +256,17 @@ kubectl get ec2nodeclass,nodepool
 
 ```bash
 cd waguwagu-infra
-./scripts/deploy-matching.sh
+./k8s/scripts/deploy-matching.sh
 ```
+> mTLS 설정, Karpenter 설정, 서비스 배포가 일괄 진행됩니다.
 
 ### Game
 
 ```bash
 cd waguwagu-infra
-./scripts/deploy-game.sh
+./k8s/scripts/deploy-game.sh
 ```
+> Agones 설정, 도메인 인증, Karpenter 설정이 일괄 진행됩니다.
 
 ---
 ## 7. Monitoring 배포
@@ -295,8 +318,8 @@ terraform apply -auto-approve
 ## 8. Kubernetes 리소스 삭제 (자동화)
 
 ```bash
-cd waguwagu-infra
-./scripts/destroy-k8s.sh
+# waguwagu-infra 루트 디렉토리에서 실행
+./terraform/scripts/destroy-k8s.sh
 ```
 
 ---
@@ -304,8 +327,8 @@ cd waguwagu-infra
 ## 9. Terraform 리소스 삭제 (자동화)
 
 ```bash
-cd waguwagu-infra
-./scripts/destroy-all.sh
+# waguwagu-infra 루트 디렉토리에서 실행
+./terraform/scripts/destroy-all.sh
 ```
 
 ---
@@ -313,13 +336,14 @@ cd waguwagu-infra
 
 ## 10. mTLS 설정 및 Matching 서버 배포
 
-Matching 서버는 Game 서버로부터 할당 정보를 안전하게 받기 위해 **mTLS**를 사용한다. 이 모든 과정은 자동화 스크립트에 통합되어 있다.
+Matching 서버는 Game 서버로부터 할당 정보를 안전하게 받기 위해 **mTLS**를 사용합니다. 
+<br>이 모든 과정은 자동화 스크립트에 통합되어 있습니다.
 
 ---
 
 ### 통합 배포 스크립트 실행
 
-별도의 인증서 추출 과정 없이, 아래 스크립트 하나로 **mTLS 설정 + Allocator 엔드포인트 갱신 + 서버 배포**가 일괄 수행된다.
+별도의 인증서 추출 과정 없이, 아래 스크립트 하나로 **mTLS 설정 + Allocator 엔드포인트 갱신 + 서버 배포**가 일괄 수행됩니다.
 
 ```bash
 cd waguwagu-infra
@@ -336,7 +360,7 @@ cd waguwagu-infra
 
 ### 주의 사항
 
-* **도메인 확인**: 게임 서버 접속은 공인 인증서(`wss://*.game.waguwagu.cloud`)를 사용하며, 서버 간 통신은 mTLS를 사용한다.
+* **도메인 확인**: 게임 서버 접속은 공인 인증서(`wss://*.game.waguwagu.cloud`)를 사용하며, 서버 간 통신은 mTLS를 사용합니다.
 
 ---
 

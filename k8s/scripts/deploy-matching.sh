@@ -70,8 +70,16 @@ echo "▶ Matching Server Deployment 적용"
 cd ../../matching
 kubectl apply -f matching-deploy.yaml
 
-# 11. HPA 적용
+# 11. Karpenter 설정 적용
+echo "▶ Karpenter 설정 적용 (Matching)"
+cd "$SCRIPT_DIR/../k8s/karpenter/matching"
+kubectl apply -f matching-nodeclass.yaml
+kubectl apply -f matching-nodepool.yaml
+kubectl get ec2nodeclass,nodepool
+
+# 12. HPA 적용
 echo "▶ HPA 적용"
+cd "$SCRIPT_DIR/../k8s/matching"
 kubectl apply -f matching-hpa.yaml
 kubectl get hpa -n matching
 

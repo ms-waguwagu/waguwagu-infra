@@ -40,7 +40,16 @@ echo "⌛ 인증서 발급 대기 (최대 5분)..."
 kubectl wait --for=condition=ready certificate/game-wss-wildcard -n game --timeout=300s || echo "⚠️ 인증서 발급이 지연되고 있습니다. 나중에 확인해 주세요."
 
 ############################
-# 3. Agones Fleet 적용
+# 3. Karpenter 설정 적용
+############################
+echo "▶ Karpenter 설정 적용 (Game)"
+cd "$ROOT_DIR/k8s/karpenter/game"
+kubectl apply -f game-nodeclass.yaml
+kubectl apply -f game-nodepool.yaml
+kubectl get ec2nodeclass,nodepool
+
+############################
+# 4. Agones Fleet 적용
 ############################
 echo "▶ Agones Fleet 적용"
 kubectl apply -f agones-fleet.yaml
@@ -52,6 +61,7 @@ echo "▶ Game 클러스터 상태 확인"
 kubectl get fleet -n game
 kubectl get gameserver -n game
 kubectl get pods -n game
+kubectl get ec2nodeclass,nodepool
 
 echo "=============================="
 echo "✅ Game 클러스터 배포 완료"
